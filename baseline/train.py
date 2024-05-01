@@ -12,9 +12,10 @@ from pathlib import Path
 
 import random
 import torch
-from datasets import Dataset
+from datasets import Dataset, load_from_disk
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import Trainer, TrainingArguments
+from preprocess import get_dataset
 
 def get_logger():
     logging.basicConfig(
@@ -48,16 +49,6 @@ def set_gpu(cfg):
     logger.info(f"CUDA_VISIBLE_DEVICES: {cfg.train.gpu_id}")
     os.environ['CUDA_VISIBLE_DEVICES'] = str(cfg.train.gpu_id)
 
-def load_data(cfg):
-    logger.info('load dataset...')
-    category_df = pd.read_csv(cfg.data.category_csv, dtype={'SSno': str})
-    train_df = pd.read_csv(cfg.data.train_csv)
-    train_set = Dataset.from_pandas(train_df)
-    if cfg.data.debug:
-        logger.info(f'debug: {cfg.data.debug}')
-        train_set = train_set.train_test_split(test_size=0.01, seed=42)['test']
-    return train_set, category_df
-
 def load_model(cfg):
     logger.info('load model...')
     tokenizer = AutoTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path)
@@ -66,6 +57,17 @@ def load_model(cfg):
         num_labels = cfg.model.num_labels,
     )
     return tokenizer, model
+
+def load_data(cfg, tokenizer):
+    logger.info('load dataset...')
+    if os.path.isdir(cfg.data.load_from_disk):
+        logger.info('loaded from disk!')
+        tokenized = load_from_disk(cfg.data.load_from_disk)
+        return tokenized
+    
+    category_df, train_set = get_dataset(cfg, logger)
+    
+    return train_set, category_df
 
 def preprocess_data(cfg, dataset, category_df):
     logger.info('preprocess dataset...')
@@ -173,9 +175,10 @@ def main(cfg):
     logger = get_logger()
     set_seed(cfg)
     set_gpu(cfg)
-    dataset, category_df = load_data(cfg)
+
     tokenizer, model = load_model(cfg)
 
+    dataset, category_df = load_data(cfg, tokenizer)
     dataset = preprocess_data(cfg, dataset, category_df)
     dataset = tokenize_data(cfg, dataset, tokenizer)
     dataset = split_data(cfg, dataset)

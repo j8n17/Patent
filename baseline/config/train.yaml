@@ -1,6 +1,9 @@
 data:
-  category_csv: ./category.csv
-  train_csv: ./train.csv
+  path: ../data
+  load_from_disk: ""
+  train: ../data/train
+  category_csv: ../data/category.csv
+  train_csv: ../data/train/train.csv
 
   val_size: 0.05
   split_seed: 42
@@ -17,7 +20,7 @@ train:
   
   optim: adamw_torch
   epochs: 100
-  batch_size: 64
+  batch_size: 1
   learning_rate: 0.00005
   warmup_steps: 200
   early_stop_patience: 5

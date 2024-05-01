@@ -1,4 +1,5 @@
-path:
+data:
+  path: ../data
   train: ../data/train
-  category_csv: ./category.csv
-  train_csv: ./train.csv
+  category_csv: ../data/category.csv
+  train_csv: ../data/train/train.csv
