@@ -111,8 +111,8 @@ def main(cfg):
 
     tokenizer, model = load_model(cfg)
 
-    dataset = load_data(cfg, tokenizer, logger)
-    dataset = split_data(cfg, dataset, logger)
+    dataset = load_data(cfg, tokenizer)
+    dataset = split_data(cfg, dataset)
     logger.info(dataset)
     
     trainer = get_trainer(cfg, model, tokenizer, dataset)

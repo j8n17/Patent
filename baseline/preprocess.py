@@ -17,6 +17,8 @@ def get_logger():
     logger = logging.getLogger()
     return logger
 
+logger = get_logger()
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='./config/preprocess.yaml')
@@ -58,7 +60,7 @@ def groupby_docId(docs, labels):
     data = pd.concat([texts_by_docId, SSnos_by_docId], axis=1)
     return data
 
-def get_dataset(cfg, logger):
+def get_dataset(cfg):
     category_csv = cfg.data.category_csv
     train_csv = cfg.data.train_csv
     if os.path.isfile(category_csv) and os.path.isfile(train_csv):
@@ -78,7 +80,7 @@ def get_dataset(cfg, logger):
     train_set = Dataset.from_pandas(train_df)
     return category_df, train_set
 
-def formatting_data(dataset, category_df, logger):
+def formatting_data(dataset, category_df):
     logger.info('formatting dataset...')
 
     idx_to_SS = category_df.SSno.values
@@ -110,7 +112,7 @@ def formatting_data(dataset, category_df, logger):
     )
     return formatted
 
-def tokenize_data(dataset, tokenizer, logger):
+def tokenize_data(dataset, tokenizer):
     logger.info('tokenize dataset...')
     def batch_tokenize(batch):
         return tokenizer(
@@ -126,7 +128,7 @@ def tokenize_data(dataset, tokenizer, logger):
     )
     return tokenized
 
-def load_data(cfg, tokenizer, logger):
+def load_data(cfg, tokenizer):
 
     logger.info('load dataset...')
     if os.path.isdir(cfg.data.load_from_disk):
@@ -134,13 +136,13 @@ def load_data(cfg, tokenizer, logger):
         tokenized = load_from_disk(cfg.data.load_from_disk)
         return tokenized
     
-    category_df, train_set = get_dataset(cfg, logger)
-    train_set = formatting_data(train_set, category_df, logger)
-    train_set = tokenize_data(train_set, tokenizer, logger)
+    category_df, train_set = get_dataset(cfg)
+    train_set = formatting_data(train_set, category_df)
+    train_set = tokenize_data(train_set, tokenizer)
     
     return train_set
 
-def split_data(cfg, dataset, logger):
+def split_data(cfg, dataset):
     logger.info('split dataset...')
     dataset = dataset.train_test_split(
         test_size = cfg.data.val_size,
@@ -149,10 +151,7 @@ def split_data(cfg, dataset, logger):
     return dataset
 
 def main(cfg):
-    global logger
-    logger = get_logger()
-
-    get_dataset(cfg, logger)
+    get_dataset(cfg)
 
 if __name__ == '__main__':
     args = parse_args()
