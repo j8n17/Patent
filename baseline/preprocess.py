@@ -80,9 +80,32 @@ def get_dataset(cfg):
     train_set = Dataset.from_pandas(train_df)
     return category_df, train_set
 
-def formatting_data(dataset, category_df):
+def formatting_data(cfg, dataset, category_df=None):
     logger.info('formatting dataset...')
+    
+    if 'pred' in cfg:
+        def formatting_fn(example):
+            title = example['invention_title']
+            abstract = example['abstract']
+            claims = example['claims']
 
+            texts = f"{title} 요약: {abstract} 청구항: {claims}"
+
+            return {
+                'texts': texts,
+            }
+        
+        formatted = dataset.map(
+            formatting_fn,
+            remove_columns=[
+                col
+                for col in dataset.column_names
+                if col not in ['documentId']
+            ],
+        )
+
+        return formatted
+    
     idx_to_SS = category_df.SSno.values
     SS_to_idx = {cat:idx for idx, cat in enumerate(idx_to_SS)}
 
@@ -101,6 +124,7 @@ def formatting_data(dataset, category_df):
             'texts': texts,
             'labels': labels,
         }
+    
     
     formatted = dataset.map(
         formatting_fn,
@@ -126,6 +150,10 @@ def tokenize_data(cfg, dataset, tokenizer):
         input_columns='texts',
         batched=True,
     )
+
+    if 'pred' in cfg:
+        return tokenized
+    
     tokenized.save_to_disk(os.path.join(cfg.data.train, cfg.data.save_tokenized_set))
     logger.info('save tokenize dataset for next train!')
 
@@ -134,16 +162,23 @@ def tokenize_data(cfg, dataset, tokenizer):
 def load_data(cfg, tokenizer):
 
     logger.info('load dataset...')
-    if os.path.isdir(os.path.join(cfg.data.train, cfg.data.save_tokenized_set)):
-        logger.info('loaded from disk!')
-        tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.data.save_tokenized_set))
-        return tokenized_set
+
+    if 'pred' in cfg: # pred
+        category_df = pd.read_csv(cfg.data.category_csv, dtype={'SSno': str})
+        df = pd.read_csv(cfg.data.test_csv)
+        dataset = Dataset.from_pandas(df)
     
-    category_df, train_set = get_dataset(cfg)
-    train_set = formatting_data(train_set, category_df)
-    train_set = tokenize_data(cfg, train_set, tokenizer)
+    else: # train
+        if os.path.isdir(os.path.join(cfg.data.train, cfg.data.save_tokenized_set)):
+            logger.info('loaded from disk!')
+            tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.data.save_tokenized_set))
+            return tokenized_set, None
+        category_df, dataset = get_dataset(cfg)
+
+    dataset = formatting_data(cfg, dataset, category_df)
+    dataset = tokenize_data(cfg, dataset, tokenizer)
     
-    return train_set
+    return dataset, category_df
 
 def split_data(cfg, dataset):
     logger.info('split dataset...')

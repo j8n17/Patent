@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from datasets import Dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import default_data_collator
+from preprocess import tokenize_data, formatting_data, load_data
 
 def get_logger():
     logging.basicConfig(
@@ -29,16 +30,6 @@ def parse_args():
 def get_config(args):
     return OmegaConf.load(args.config)
 
-def load_data(cfg):
-    logger.info('load dataset...')
-    category_df = pd.read_csv(cfg.data.category_csv, dtype={'SSno': str})
-    test_df = pd.read_csv(cfg.data.test_csv)
-    test_set = Dataset.from_pandas(test_df)
-    if cfg.data.debug:
-        logger.info(f'debug: {cfg.data.debug}')
-        test_set = test_set.train_test_split(test_size=0.05, seed=42)['test']
-    return test_set, category_df
-
 def load_model(cfg):
     logger.info('load model...')
     tokenizer = AutoTokenizer.from_pretrained(
@@ -48,46 +39,6 @@ def load_model(cfg):
         pretrained_model_name_or_path = cfg.model.pretrained_model_name_or_path,
     )
     return tokenizer, model
-
-def preprocess_data(cfg, dataset):
-    logger.info('preprocess dataset...')
-
-    def preprocess_fn(example):
-        title = example['invention_title']
-        abstract = example['abstract']
-        claims = example['claims']
-
-        texts = f"{title} 요약: {abstract} 청구항: {claims}"
-
-        return {
-            'texts': texts,
-        }
-    
-    preprocessed = dataset.map(
-        preprocess_fn,
-        remove_columns=[
-            col
-            for col in dataset.column_names
-            if col not in ['documentId']
-        ],
-    )
-    return preprocessed
-
-def tokenize_data(cfg, dataset, tokenizer):
-    logger.info('tokenize dataset...')
-    def batch_tokenize(batch):
-        return tokenizer(
-            batch,
-            max_length=512,
-            padding='max_length',
-            truncation=True,
-        )
-    tokenized = dataset.map(
-        batch_tokenize,
-        input_columns='texts',
-        batched=True,
-    )
-    return tokenized
 
 def pred(cfg, dataset, model, tokenizer):
     device = cfg.pred.device
@@ -135,11 +86,9 @@ def save_submission(cfg, ids, preds, category_df):
     submission.to_csv(cfg.pred.submission_csv, index=False)
 
 def main(cfg):
-    dataset, category_df = load_data(cfg)
     tokenizer, model = load_model(cfg)
 
-    dataset = preprocess_data(cfg, dataset)
-    dataset = tokenize_data(cfg, dataset, tokenizer)
+    dataset, category_df = load_data(cfg, tokenizer)
 
     ids, preds = pred(cfg, dataset, model, tokenizer)
     save_submission(cfg, ids, preds, category_df)

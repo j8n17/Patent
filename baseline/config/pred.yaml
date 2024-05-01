@@ -4,11 +4,11 @@ data:
   debug: false
 
 model:
-  pretrained_model_name_or_path : './results/checkpoint-22300'
+  pretrained_model_name_or_path : './results/test_checkpoint'
 
 pred:
   batch_size: 1
   threshold: 2.0
-  submission_csv: './results/checkpoint-22300/submission.csv'
+  submission_csv: './results/ctest_checkpoint/submission.csv'
 
-  device: "cuda:0"
+  device: "cpu" # "cuda:0"
