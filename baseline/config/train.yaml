@@ -1,0 +1,33 @@
+data:
+  category_csv: ./category.csv
+  train_csv: ./train.csv
+
+  val_size: 0.05
+  split_seed: 42
+  debug: false
+
+model:
+  pretrained_model_name_or_path : 'monologg/koelectra-small-v3-discriminator'
+  num_labels: 564
+
+train:
+  seed: 42
+  deterministic: False
+  gpu_id: "0"
+  
+  optim: adamw_torch
+  epochs: 100
+  batch_size: 64
+  learning_rate: 0.00005
+  warmup_steps: 200
+  early_stop_patience: 5
+
+  output_dir: './results'
+  save_total_limit: 3
+  report_to: []
+
+  loss:
+    name: FocalLoss
+    params:
+      gamma: 2
+      pos_weight: 564

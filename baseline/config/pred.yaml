@@ -1,0 +1,14 @@
+data:
+  category_csv: ./category.csv
+  test_csv: ../data/test/test_input.csv
+  debug: false
+
+model:
+  pretrained_model_name_or_path : './results/checkpoint-22300'
+
+pred:
+  batch_size: 64
+  threshold: 2.0
+  submission_csv: './results/checkpoint-22300/submission.csv'
+
+  device: "cuda:0"
