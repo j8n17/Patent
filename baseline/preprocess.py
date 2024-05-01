@@ -112,7 +112,7 @@ def formatting_data(dataset, category_df):
     )
     return formatted
 
-def tokenize_data(dataset, tokenizer):
+def tokenize_data(cfg, dataset, tokenizer):
     logger.info('tokenize dataset...')
     def batch_tokenize(batch):
         return tokenizer(
@@ -126,19 +126,22 @@ def tokenize_data(dataset, tokenizer):
         input_columns='texts',
         batched=True,
     )
+    tokenized.save_to_disk(os.path.join(cfg.data.train, cfg.data.save_tokenized_set))
+    logger.info('save tokenize dataset for next train!')
+
     return tokenized
 
 def load_data(cfg, tokenizer):
 
     logger.info('load dataset...')
-    if os.path.isdir(cfg.data.load_from_disk):
+    if os.path.isdir(os.path.join(cfg.data.train, cfg.data.save_tokenized_set)):
         logger.info('loaded from disk!')
-        tokenized = load_from_disk(cfg.data.load_from_disk)
-        return tokenized
+        tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.data.save_tokenized_set))
+        return tokenized_set
     
     category_df, train_set = get_dataset(cfg)
     train_set = formatting_data(train_set, category_df)
-    train_set = tokenize_data(train_set, tokenizer)
+    train_set = tokenize_data(cfg, train_set, tokenizer)
     
     return train_set
 

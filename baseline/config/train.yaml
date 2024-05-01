@@ -1,6 +1,6 @@
 data:
   path: ../data
-  load_from_disk: ""
+  save_tokenized_set: baseline
   train: ../data/train
   category_csv: ../data/category.csv
   train_csv: ../data/train/train.csv
