@@ -15,7 +15,7 @@ import torch
 from datasets import Dataset, load_from_disk
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import Trainer, TrainingArguments
-from preprocess import get_dataset
+from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data
 
 def get_logger():
     logging.basicConfig(
@@ -57,75 +57,6 @@ def load_model(cfg):
         num_labels = cfg.model.num_labels,
     )
     return tokenizer, model
-
-def formatting_data(dataset, category_df):
-    logger.info('formatting dataset...')
-
-    idx_to_SS = category_df.SSno.values
-    SS_to_idx = {cat:idx for idx, cat in enumerate(idx_to_SS)}
-
-    def formatting_fn(example):
-        title = example['invention_title']
-        abstract = example['abstract']
-        claims = example['claims']
-
-        texts = f"{title} 요약: {abstract} 청구항: {claims}"
-        labels = np.zeros(len(SS_to_idx), dtype=np.bool_)
-
-        for SSno in example['SSnos'].split():
-            labels[SS_to_idx[SSno]] = 1
-
-        return {
-            'texts': texts,
-            'labels': labels,
-        }
-    
-    formatted = dataset.map(
-        formatting_fn,
-        remove_columns=[
-            col
-            for col in dataset.column_names
-            if col not in ['documentId']
-        ],
-    )
-    return formatted
-
-def tokenize_data(dataset, tokenizer):
-    logger.info('tokenize dataset...')
-    def batch_tokenize(batch):
-        return tokenizer(
-            batch,
-            max_length=512,
-            padding='max_length',
-            truncation=True,
-        )
-    tokenized = dataset.map(
-        batch_tokenize,
-        input_columns='texts',
-        batched=True,
-    )
-    return tokenized
-
-def load_data(cfg, tokenizer):
-    logger.info('load dataset...')
-    if os.path.isdir(cfg.data.load_from_disk):
-        logger.info('loaded from disk!')
-        tokenized = load_from_disk(cfg.data.load_from_disk)
-        return tokenized
-    
-    category_df, train_set = get_dataset(cfg, logger)
-    train_set = formatting_data(train_set, category_df)
-    train_set = tokenize_data(train_set, tokenizer)
-    
-    return train_set
-
-def split_data(cfg, dataset):
-    logger.info('split dataset...')
-    dataset = dataset.train_test_split(
-        test_size = cfg.data.val_size,
-        seed = cfg.data.split_seed,
-    )
-    return dataset
 
 class CustomTrainer(Trainer):
     def __init__(self, *args, loss_fn, **kargs):
@@ -180,8 +111,8 @@ def main(cfg):
 
     tokenizer, model = load_model(cfg)
 
-    dataset = load_data(cfg, tokenizer)
-    dataset = split_data(cfg, dataset)
+    dataset = load_data(cfg, tokenizer, logger)
+    dataset = split_data(cfg, dataset, logger)
     logger.info(dataset)
     
     trainer = get_trainer(cfg, model, tokenizer, dataset)
