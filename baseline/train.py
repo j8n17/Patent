@@ -66,16 +66,17 @@ def load_data(cfg, tokenizer):
         return tokenized
     
     category_df, train_set = get_dataset(cfg, logger)
+    train_set = formatting_data(train_set, category_df)
     
-    return train_set, category_df
+    return train_set
 
-def preprocess_data(cfg, dataset, category_df):
-    logger.info('preprocess dataset...')
+def formatting_data(dataset, category_df):
+    logger.info('formatting dataset...')
 
     idx_to_SS = category_df.SSno.values
     SS_to_idx = {cat:idx for idx, cat in enumerate(idx_to_SS)}
 
-    def preprocess_fn(example):
+    def formatting_fn(example):
         title = example['invention_title']
         abstract = example['abstract']
         claims = example['claims']
@@ -91,15 +92,15 @@ def preprocess_data(cfg, dataset, category_df):
             'labels': labels,
         }
     
-    preprocessed = dataset.map(
-        preprocess_fn,
+    formatted = dataset.map(
+        formatting_fn,
         remove_columns=[
             col
             for col in dataset.column_names
             if col not in ['documentId']
         ],
     )
-    return preprocessed
+    return formatted
 
 def tokenize_data(cfg, dataset, tokenizer):
     logger.info('tokenize dataset...')
@@ -178,8 +179,7 @@ def main(cfg):
 
     tokenizer, model = load_model(cfg)
 
-    dataset, category_df = load_data(cfg, tokenizer)
-    dataset = preprocess_data(cfg, dataset, category_df)
+    dataset = load_data(cfg, tokenizer)
     dataset = tokenize_data(cfg, dataset, tokenizer)
     dataset = split_data(cfg, dataset)
     logger.info(dataset)
