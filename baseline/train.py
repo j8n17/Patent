@@ -58,18 +58,6 @@ def load_model(cfg):
     )
     return tokenizer, model
 
-def load_data(cfg, tokenizer):
-    logger.info('load dataset...')
-    if os.path.isdir(cfg.data.load_from_disk):
-        logger.info('loaded from disk!')
-        tokenized = load_from_disk(cfg.data.load_from_disk)
-        return tokenized
-    
-    category_df, train_set = get_dataset(cfg, logger)
-    train_set = formatting_data(train_set, category_df)
-    
-    return train_set
-
 def formatting_data(dataset, category_df):
     logger.info('formatting dataset...')
 
@@ -102,7 +90,7 @@ def formatting_data(dataset, category_df):
     )
     return formatted
 
-def tokenize_data(cfg, dataset, tokenizer):
+def tokenize_data(dataset, tokenizer):
     logger.info('tokenize dataset...')
     def batch_tokenize(batch):
         return tokenizer(
@@ -117,6 +105,19 @@ def tokenize_data(cfg, dataset, tokenizer):
         batched=True,
     )
     return tokenized
+
+def load_data(cfg, tokenizer):
+    logger.info('load dataset...')
+    if os.path.isdir(cfg.data.load_from_disk):
+        logger.info('loaded from disk!')
+        tokenized = load_from_disk(cfg.data.load_from_disk)
+        return tokenized
+    
+    category_df, train_set = get_dataset(cfg, logger)
+    train_set = formatting_data(train_set, category_df)
+    train_set = tokenize_data(train_set, tokenizer)
+    
+    return train_set
 
 def split_data(cfg, dataset):
     logger.info('split dataset...')
@@ -180,7 +181,6 @@ def main(cfg):
     tokenizer, model = load_model(cfg)
 
     dataset = load_data(cfg, tokenizer)
-    dataset = tokenize_data(cfg, dataset, tokenizer)
     dataset = split_data(cfg, dataset)
     logger.info(dataset)
     
