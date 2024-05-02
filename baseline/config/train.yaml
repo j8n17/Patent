@@ -1,6 +1,6 @@
 data:
   path: ../data
-  save_tokenized_set: baseline
+  save_tokenized_set: KoPatElectra_base # baseline
   train: ../data/train
   category_csv: ../data/category.csv
   train_csv: ../data/train/train.csv
@@ -10,7 +10,7 @@ data:
   debug: false
 
 model:
-  pretrained_model_name_or_path : 'monologg/koelectra-small-v3-discriminator'
+  pretrained_model_name_or_path : "./KIPIKorPatELECTRA/KorPatELECTRA/PT" # 'monologg/koelectra-small-v3-discriminator'
   num_labels: 564
 
 train:
