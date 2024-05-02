@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 from datasets import Dataset, load_from_disk
 import numpy as np
+import re
 
 def get_logger():
     logging.basicConfig(
@@ -80,6 +81,10 @@ def get_dataset(cfg):
     train_set = Dataset.from_pandas(train_df)
     return category_df, train_set
 
+def cleaning_data(text):
+    text = re.sub(r'[^가-힣A-Za-z0-9,\. ]', '', text)
+    return text
+
 def formatting_data(cfg, dataset, category_df=None):
     logger.info('formatting dataset...')
     
@@ -90,6 +95,7 @@ def formatting_data(cfg, dataset, category_df=None):
             claims = example['claims']
 
             texts = f"{title} 요약: {abstract} 청구항: {claims}"
+            texts = cleaning_data(texts)
 
             return {
                 'texts': texts,
@@ -115,6 +121,7 @@ def formatting_data(cfg, dataset, category_df=None):
         claims = example['claims']
 
         texts = f"{title} 요약: {abstract} 청구항: {claims}"
+        texts = cleaning_data(texts)
         labels = np.zeros(len(SS_to_idx), dtype=np.bool_)
 
         for SSno in example['SSnos'].split():
@@ -124,7 +131,6 @@ def formatting_data(cfg, dataset, category_df=None):
             'texts': texts,
             'labels': labels,
         }
-    
     
     formatted = dataset.map(
         formatting_fn,
