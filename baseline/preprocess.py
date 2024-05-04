@@ -6,9 +6,10 @@ import json
 from tqdm.auto import tqdm
 from pathlib import Path
 import logging
-from datasets import Dataset, load_from_disk
+from datasets import Dataset, load_from_disk, DatasetDict
 import numpy as np
 import re
+from sklearn.model_selection import StratifiedKFold, KFold
 
 def get_logger():
     logging.basicConfig(
@@ -186,12 +187,51 @@ def load_data(cfg, tokenizer):
     
     return dataset, category_df
 
+def make_kfold_indices(cfg):
+    logger.info('make kfold indices...')
+    '''
+    Multi Label의 경우 Stratified KFold를 하기 어렵기 때문에,
+    추후에 변경하더라도 일단은
+    Multi Label은 KFold로 나누고 Single Label은 Stratified KFold로 나눈 후, 둘을 합쳐 사용한다.
+    '''
+
+    df = pd.read_csv(cfg.data.train_csv)
+
+    multi_X = df[df["SSnos"].apply(lambda x: len(x)!=5)].index.to_numpy() # indice
+    single_X = df[df["SSnos"].apply(lambda x: len(x)==5)].index.to_numpy()
+    single_y = df.loc[single_X, "SSnos"].values
+
+    n_fold = cfg.data.n_fold
+    kf = KFold(n_splits=n_fold, shuffle=True, random_state=cfg.data.split_seed)
+    skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.data.split_seed)
+
+    train_test_indices = []
+    for (single_train_idx, single_test_idx), (multi_train_idx, multi_test_idx) in zip(skf.split(single_X, single_y), kf.split(multi_X)):
+        train_test_indices.append([np.concatenate([single_train_idx, multi_train_idx]), np.concatenate([single_test_idx, multi_test_idx])])
+
+    # NumPy 배열로 변환
+    train_test_indices = np.array(train_test_indices, dtype=object)
+
+    # np.save("../data/train/kfold_indices.npy", train_test_indices) # 필요하면 저장 후 분석
+    # test = np.load('./train/KFold_indices.npy', allow_pickle=True) # npy load
+
+    return train_test_indices
+
 def split_data(cfg, dataset):
     logger.info('split dataset...')
-    dataset = dataset.train_test_split(
-        test_size = cfg.data.val_size,
-        seed = cfg.data.split_seed,
-    )
+    # dataset = dataset.train_test_split(
+    #     test_size = 1/cfg.data.n_fold,
+    #     seed = cfg.data.split_seed,
+    # )
+
+    kfold_indices = make_kfold_indices(cfg)
+    train_idx, test_idx = kfold_indices[cfg.data.test_fold]
+    
+    dataset = DatasetDict({
+        "train": dataset.select(train_idx),
+        "test": dataset.select(test_idx)
+    })
+    
     return dataset
 
 def main(cfg):

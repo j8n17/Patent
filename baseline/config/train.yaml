@@ -5,7 +5,8 @@ data:
   category_csv: ../data/category.csv
   train_csv: ../data/train/train.csv
 
-  val_size: 0.05
+  n_fold: 5
+  test_fold: 0
   split_seed: 42
   debug: false
 
