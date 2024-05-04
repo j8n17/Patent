@@ -57,6 +57,23 @@ def load_model(cfg):
         pretrained_model_name_or_path = cfg.model.pretrained_model_name_or_path,
         num_labels = cfg.model.num_labels,
     )
+
+    if cfg.model.finetune:
+        for name, param in model.named_parameters():
+            if "classifier" not in name:
+                param.requires_grad = False
+        
+        def check_freezing(model):
+            trainable_weights = []
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    trainable_weights.append(name)
+            logger.info(f'trainable_weights: {trainable_weights}')
+
+        check_freezing(model)
+    else:
+        logger.info('not fine-tuning...')
+
     return tokenizer, model
 
 class CustomTrainer(Trainer):
