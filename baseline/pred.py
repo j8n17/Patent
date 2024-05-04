@@ -69,7 +69,7 @@ def pred(cfg, dataset, model, tokenizer):
     
     ids = np.concatenate(result_ids)
     logits = np.concatenate(result_logits)
-    preds = (logits > threshold)
+    preds = (torch.sigmoid(logits) > threshold)
 
     return ids, preds
 

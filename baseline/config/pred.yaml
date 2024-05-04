@@ -8,7 +8,7 @@ model:
 
 pred:
   batch_size: 1
-  threshold: 2.0
+  threshold: 0.5
   submission_csv: './results/ctest_checkpoint/submission.csv'
 
   device: "cpu" # "cuda:0"

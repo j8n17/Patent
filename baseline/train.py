@@ -16,6 +16,7 @@ from datasets import Dataset, load_from_disk
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import Trainer, TrainingArguments
 from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data
+from sklearn.metrics import f1_score
 
 def get_logger():
     logging.basicConfig(
@@ -68,6 +69,7 @@ class CustomTrainer(Trainer):
             input_ids=inputs['input_ids'],
             attention_mask=inputs['attention_mask'],
         )
+        # print(self.tokenizer.decode(inputs['input_ids'][0])) # 모델 입력이 어떤 순서로 나오는지 확인을 위함
         loss = self.loss_fn(outputs.logits, inputs['labels'])
         return (loss, outputs) if return_outputs else loss
 
@@ -80,6 +82,7 @@ def get_trainer(cfg, model, tokenizer, dataset):
 
         num_train_epochs=cfg.train.epochs,
         per_device_train_batch_size=cfg.train.batch_size,
+        per_device_eval_batch_size=cfg.train.batch_size,
         optim=cfg.train.optim,
         learning_rate=cfg.train.learning_rate,
         warmup_steps=cfg.train.warmup_steps,
@@ -90,6 +93,19 @@ def get_trainer(cfg, model, tokenizer, dataset):
         report_to = list(cfg.train.report_to),
     )
 
+    def compute_metrics(pred):
+        labels = pred.label_ids
+        # preds = pred.predictions.argmax(-1)
+        preds = torch.from_numpy(pred.predictions)
+        preds = (torch.sigmoid(preds) > 0.5)
+
+        # micro F1-score 계산
+        f1 = f1_score(labels, preds, average='micro')
+        
+        return {
+            "micro_f1_score": f1
+            }
+
     loss_fn = get_loss_fn(cfg)
     trainer = CustomTrainer(
         model = model,
@@ -97,7 +113,8 @@ def get_trainer(cfg, model, tokenizer, dataset):
         train_dataset = dataset['train'],
         eval_dataset = dataset['test'],
         tokenizer = tokenizer,
-        loss_fn=loss_fn
+        loss_fn=loss_fn,
+        compute_metrics=compute_metrics,
     )
 
     logger.info(f"trainer: {trainer.args}")
