@@ -23,7 +23,7 @@ train:
   optim: adamw_torch
   epochs: 3
   batch_size: 16
-  learning_rate: 5e-5
+  learning_rate: 2e-4
   warmup_steps: 0
   lr_scheduler_type: 'constant'
   # early_stop_patience: 5
