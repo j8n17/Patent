@@ -103,6 +103,7 @@ def get_trainer(cfg, model, tokenizer, dataset):
         optim=cfg.train.optim,
         learning_rate=cfg.train.learning_rate,
         warmup_steps=cfg.train.warmup_steps,
+        lr_scheduler_type=cfg.train.lr_scheduler_type,
 
         output_dir=cfg.train.output_dir,
         save_total_limit=cfg.train.save_total_limit,
