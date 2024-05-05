@@ -1,7 +1,0 @@
-omegaconf
-pandas
-torch
-datasets
-transformers==4.35.0
-accelerate
-scikit-learn
