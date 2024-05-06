@@ -141,15 +141,22 @@ def get_trainer(cfg, model, tokenizer, dataset):
 
     def compute_metrics(pred):
         labels = pred.label_ids
-        # preds = pred.predictions.argmax(-1)
-        preds = torch.from_numpy(pred.predictions)
-        preds = (torch.sigmoid(preds) > 0.5)
+        outputs = pred.predictions
 
-        # micro F1-score 계산
-        f1 = f1_score(labels, preds, average='micro')
+        # [multi cls pred] sigmoid 값 0.5 이상 예측, micro F1-score 계산
+        preds = torch.from_numpy(outputs)
+        preds = (torch.sigmoid(preds) > 0.5)
+        f1_sig05 = f1_score(labels, preds, average='micro')
+        
+        # [single cls pred] argmax로 가장 높은 클래스로 예측
+        preds = outputs.argmax(-1)
+        preds_onehot = np.full(outputs.shape, False)
+        preds_onehot[np.arange(preds.shape[0]), preds] = True
+        f1_argmax = f1_score(labels, preds_onehot, average='micro')
         
         return {
-            "micro_f1_score": f1
+            "f1_sig05": f1_sig05,
+            "f1_argmax": f1_argmax
             }
 
     loss_fn = get_loss_fn(cfg)
