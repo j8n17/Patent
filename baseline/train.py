@@ -120,7 +120,6 @@ def get_trainer(cfg, model, tokenizer, dataset):
             report_to = list(cfg.train.report_to),
         )
     else:
-        logger.info(f"{len(dataset['train'])}")
         training_args = TrainingArguments(
             evaluation_strategy='epoch',
             save_strategy='epoch',
