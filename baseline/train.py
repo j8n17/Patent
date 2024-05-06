@@ -17,6 +17,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import Trainer, TrainingArguments
 from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data
 from sklearn.metrics import f1_score
+import math
 
 def get_logger():
     logging.basicConfig(
@@ -93,23 +94,50 @@ class CustomTrainer(Trainer):
 def get_trainer(cfg, model, tokenizer, dataset):
     logger.info(f"build trainer...")
 
-    training_args = TrainingArguments(
-        evaluation_strategy='epoch',
-        save_strategy='epoch',
+    if cfg.train.use_step:
+        max_steps=math.ceil(len(dataset['train']) / cfg.train.batch_size) * cfg.train.epochs
 
-        num_train_epochs=cfg.train.epochs,
-        per_device_train_batch_size=cfg.train.batch_size,
-        per_device_eval_batch_size=cfg.train.batch_size,
-        optim=cfg.train.optim,
-        learning_rate=cfg.train.learning_rate,
-        warmup_steps=cfg.train.warmup_steps,
-        lr_scheduler_type=cfg.train.lr_scheduler_type,
+        training_args = TrainingArguments(
+            save_strategy='epoch',
+            evaluation_strategy='step',
+            logging_strategy='step',
+            
+            max_steps=max_steps,
+            eval_steps=max_steps//cfg.train.epochs,
+            logging_steps=max_steps//cfg.train.epochs,
 
-        output_dir=cfg.train.output_dir,
-        save_total_limit=cfg.train.save_total_limit,
+            per_device_train_batch_size=cfg.train.batch_size,
+            per_device_eval_batch_size=cfg.train.batch_size,
+            optim=cfg.train.optim,
+            learning_rate=cfg.train.learning_rate,
+            warmup_steps=cfg.train.warmup_steps,
+            lr_scheduler_type=cfg.train.lr_scheduler_type,
 
-        report_to = list(cfg.train.report_to),
-    )
+            output_dir=cfg.train.output_dir,
+            save_total_limit=cfg.train.save_total_limit,
+
+            report_to = list(cfg.train.report_to),
+        )
+    else:
+        logger.info(f"{len(dataset['train'])}")
+        training_args = TrainingArguments(
+            evaluation_strategy='epoch',
+            save_strategy='epoch',
+            logging_strategy='epoch',
+
+            num_train_epochs=cfg.train.epochs,
+            per_device_train_batch_size=cfg.train.batch_size,
+            per_device_eval_batch_size=cfg.train.batch_size,
+            optim=cfg.train.optim,
+            learning_rate=cfg.train.learning_rate,
+            warmup_steps=cfg.train.warmup_steps,
+            lr_scheduler_type=cfg.train.lr_scheduler_type,
+
+            output_dir=cfg.train.output_dir,
+            save_total_limit=cfg.train.save_total_limit,
+
+            report_to = list(cfg.train.report_to),
+        )
 
     def compute_metrics(pred):
         labels = pred.label_ids
