@@ -96,21 +96,22 @@ def get_trainer(cfg, model, tokenizer, dataset):
 
     if cfg.train.use_step:
         max_steps=math.ceil(len(dataset['train']) / cfg.train.batch_size) * cfg.train.epochs
+        train_fold = cfg.data.n_fold - 1
 
         training_args = TrainingArguments(
             save_strategy='epoch',
-            evaluation_strategy='step',
-            logging_strategy='step',
+            evaluation_strategy='steps',
+            logging_strategy='steps',
             
             max_steps=max_steps,
-            eval_steps=max_steps//cfg.train.epochs,
-            logging_steps=max_steps//cfg.train.epochs,
+            eval_steps=int((max_steps//cfg.train.epochs)*2/train_fold),
+            logging_steps=int((max_steps//cfg.train.epochs)*2/train_fold),
 
             per_device_train_batch_size=cfg.train.batch_size,
             per_device_eval_batch_size=cfg.train.batch_size,
             optim=cfg.train.optim,
             learning_rate=cfg.train.learning_rate,
-            warmup_steps=cfg.train.warmup_steps,
+            warmup_steps=max_steps if cfg.train.warmup_steps==-1 else cfg.train.warmup_steps,
             lr_scheduler_type=cfg.train.lr_scheduler_type,
 
             output_dir=cfg.train.output_dir,
