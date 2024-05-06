@@ -151,7 +151,15 @@ def main(cfg):
     logger.info(dataset)
     
     trainer = get_trainer(cfg, model, tokenizer, dataset)
-    trainer.train()
+    
+    if os.path.isdir(cfg.train.checkpoint_path):
+        logger.info(f'resume from {cfg.train.checkpoint_path}...')
+        trainer.train(resume_from_checkpoint=cfg.train.checkpoint_path)
+    else:
+        logger.info(f'train new model...')
+        trainer.train()
+    
+    # trainer.train()
 
 if __name__ == '__main__':
     args = parse_args()

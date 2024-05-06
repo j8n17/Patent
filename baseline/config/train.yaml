@@ -14,6 +14,7 @@ model:
   pretrained_model_name_or_path : "./KIPIKorPatELECTRA/KorPatELECTRA/PT" # 'monologg/koelectra-small-v3-discriminator'
   num_labels: 564
   finetune: True
+  checkpoint_path: '/content/drive/MyDrive/졸업 논문/baseline/results/checkpoint-6000'
 
 train:
   seed: 42
