@@ -1,6 +1,6 @@
 data:
   path: ../data
-  save_tokenized_set: KoPatElectra_base # baseline
+  save_tokenized_set: kobart #KoPatElectra_base # baseline
   train: ../data/train
   category_csv: ../data/category.csv
   train_csv: ../data/train/train.csv
@@ -12,7 +12,8 @@ data:
 
 model:
   # pretrained_model_name_or_path : "/content/drive/MyDrive/졸업 논문/baseline/results/checkpoint-6000" # 'monologg/koelectra-small-v3-discriminator'
-  pretrained_model_name_or_path : "./KIPIKorPatELECTRA/KorPatELECTRA/PT"
+  # pretrained_model_name_or_path : "./KIPIKorPatELECTRA/KorPatELECTRA/PT"
+  pretrained_model_name_or_path : "gogamza/kobart-base-v2"
   num_labels: 564
   finetune: True
 
@@ -27,8 +28,8 @@ train:
 
   use_step: True
   epochs: 10
-  batch_size: 32
-  learning_rate: 2e-4
+  batch_size: 16
+  learning_rate: 5e-5
   warmup_steps: 0
   lr_scheduler_type: 'constant' # 'linear'
   # early_stop_patience: 5

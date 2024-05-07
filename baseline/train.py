@@ -13,7 +13,7 @@ from pathlib import Path
 import random
 import torch
 from datasets import Dataset, load_from_disk
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, BartTokenizer
 from transformers import Trainer, TrainingArguments
 from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data
 from sklearn.metrics import f1_score
@@ -53,7 +53,7 @@ def set_gpu(cfg):
 
 def load_model(cfg):
     logger.info('load model...')
-    tokenizer = AutoTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path)
+    tokenizer = BartTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path) if 'kobart' in cfg.data.save_tokenized_set else AutoTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path)
     model = AutoModelForSequenceClassification.from_pretrained(
         pretrained_model_name_or_path = cfg.model.pretrained_model_name_or_path,
         num_labels = cfg.model.num_labels,
@@ -61,7 +61,7 @@ def load_model(cfg):
 
     if cfg.model.finetune:
         for name, param in model.named_parameters():
-            if "classifier" not in name:
+            if not any(k in name for k in ['classifier', 'classification_head']):
                 param.requires_grad = False
         
         def check_freezing(model):
