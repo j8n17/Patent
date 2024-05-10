@@ -120,6 +120,9 @@ def get_trainer(cfg, model, tokenizer, dataset):
             eval_steps=int((max_steps//cfg.train.epochs)*2/train_fold),
             logging_steps=int((max_steps//cfg.train.epochs)*2/train_fold),
 
+            dataloader_num_workers=4,
+            dataloader_persistent_workers=True,
+
             per_device_train_batch_size=cfg.train.batch_size,
             per_device_eval_batch_size=cfg.train.batch_size,
             optim=cfg.train.optim,
