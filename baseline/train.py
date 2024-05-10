@@ -14,6 +14,7 @@ import random
 import torch
 from datasets import Dataset, load_from_disk
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, BartTokenizer
+from tokenizers.processors import TemplateProcessing
 from transformers import Trainer, TrainingArguments
 from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data
 from sklearn.metrics import f1_score
@@ -53,7 +54,19 @@ def set_gpu(cfg):
 
 def load_model(cfg):
     logger.info('load model...')
-    tokenizer = BartTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path) if 'kobart' in cfg.data.save_tokenized_set else AutoTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path)
+    tokenizer = AutoTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path)
+    if 'kobart' in cfg.data.save_tokenized_set:
+        tokenizer.bos_token_id = 0
+        bos = tokenizer.bos_token
+        eos = tokenizer.eos_token
+        tokenizer._tokenizer.post_processor =TemplateProcessing(
+            single=f"{bos}:0 $A:0 {eos}:0",
+            pair=f"{bos}:0 $A:0 {eos}:0 {bos}:1 $B:1 {eos}:1",
+            special_tokens=[
+                (f"{bos}", tokenizer.bos_token_id), 
+                (f"{eos}", tokenizer.eos_token_id)
+            ],
+        )
     model = AutoModelForSequenceClassification.from_pretrained(
         pretrained_model_name_or_path = cfg.model.pretrained_model_name_or_path,
         num_labels = cfg.model.num_labels,
