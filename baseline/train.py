@@ -180,7 +180,7 @@ def get_trainer(cfg, model, tokenizer, dataset):
         eval_dataset = dataset['test'],
         tokenizer = tokenizer,
         loss_fn=loss_fn,
-        compute_metrics=compute_metrics,
+        # compute_metrics=compute_metrics,
     )
 
     logger.info(f"trainer: {trainer.args}")
