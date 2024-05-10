@@ -171,6 +171,8 @@ def get_trainer(cfg, model, tokenizer, dataset):
             "f1_sig05": f1_sig05,
             "f1_argmax": f1_argmax
             }
+    
+    # validation OOM 문제 해결 방법 - https://discuss.huggingface.co/t/cuda-out-of-memory-when-using-trainer-with-compute-metrics/2941/13
 
     loss_fn = get_loss_fn(cfg)
     trainer = CustomTrainer(
