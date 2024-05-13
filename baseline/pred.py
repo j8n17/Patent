@@ -10,6 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 from datasets import Dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from tokenizers.processors import TemplateProcessing
 from transformers import default_data_collator
 from preprocess import tokenize_data, formatting_data, load_data
 
@@ -35,6 +36,18 @@ def load_model(cfg):
     tokenizer = AutoTokenizer.from_pretrained(
         cfg.model.pretrained_model_name_or_path,
     )
+    if 'kobart' in cfg.model.name:
+        tokenizer.bos_token_id = 0
+        bos = tokenizer.bos_token
+        eos = tokenizer.eos_token
+        tokenizer._tokenizer.post_processor =TemplateProcessing(
+            single=f"{bos}:0 $A:0 {eos}:0",
+            pair=f"{bos}:0 $A:0 {eos}:0 {bos}:1 $B:1 {eos}:1",
+            special_tokens=[
+                (f"{bos}", tokenizer.bos_token_id), 
+                (f"{eos}", tokenizer.eos_token_id)
+            ],
+        )
     model = AutoModelForSequenceClassification.from_pretrained(
         pretrained_model_name_or_path = cfg.model.pretrained_model_name_or_path,
     )

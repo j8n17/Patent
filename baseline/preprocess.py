@@ -161,7 +161,7 @@ def tokenize_data(cfg, dataset, tokenizer):
     if 'pred' in cfg:
         return tokenized
     
-    tokenized.save_to_disk(os.path.join(cfg.data.train, cfg.data.save_tokenized_set))
+    tokenized.save_to_disk(os.path.join(cfg.data.train, cfg.model.name))
     logger.info('save tokenize dataset for next train!')
 
     return tokenized
@@ -176,9 +176,9 @@ def load_data(cfg, tokenizer):
         dataset = Dataset.from_pandas(df)
     
     else: # train
-        if os.path.isdir(os.path.join(cfg.data.train, cfg.data.save_tokenized_set)):
+        if os.path.isdir(os.path.join(cfg.data.train, cfg.model.name)):
             logger.info('loaded from disk!')
-            tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.data.save_tokenized_set))
+            tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.model.name))
             return tokenized_set, None
         category_df, dataset = get_dataset(cfg)
 

@@ -55,7 +55,7 @@ def set_gpu(cfg):
 def load_model(cfg):
     logger.info('load model...')
     tokenizer = AutoTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path)
-    if 'kobart' in cfg.data.save_tokenized_set:
+    if 'kobart' in cfg.model.name:
         tokenizer.bos_token_id = 0
         bos = tokenizer.bos_token
         eos = tokenizer.eos_token

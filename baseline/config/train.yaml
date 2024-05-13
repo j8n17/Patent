@@ -1,9 +1,9 @@
 data:
   path: ../data
-  save_tokenized_set: kobart #KoPatElectra_base # baseline
   train: ../data/train
   category_csv: ../data/category.csv
   train_csv: ../data/train/train.csv
+  save_tokenized_dataset: True
 
   n_fold: 5
   test_fold: 0
@@ -11,6 +11,7 @@ data:
   debug: false
 
 model:
+  name: kobart
   # pretrained_model_name_or_path : "/content/drive/MyDrive/졸업 논문/baseline/results/checkpoint-6000" # 'monologg/koelectra-small-v3-discriminator'
   # pretrained_model_name_or_path : "./KIPIKorPatELECTRA/KorPatELECTRA/PT"
   pretrained_model_name_or_path : "gogamza/kobart-base-v2"

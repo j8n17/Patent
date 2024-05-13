@@ -4,7 +4,8 @@ data:
   debug: false
 
 model:
-  pretrained_model_name_or_path : './results/test_checkpoint'
+  name: kobart
+  pretrained_model_name_or_path : "./results/kobart_10epoch" #'./results/test_checkpoint'
 
 pred:
   batch_size: 1
