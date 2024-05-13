@@ -12,6 +12,7 @@ import re
 from sklearn.model_selection import StratifiedKFold, KFold
 from transformers import AutoModel
 import torch
+from torch.utils.data import DataLoader, TensorDataset
 
 def get_logger():
     logging.basicConfig(
@@ -218,15 +219,24 @@ def compute_hidden(cfg, tokenized_set):
     logger.info('computing hidden vectors...')
     hidden_vectors = []
     base_model = AutoModel.from_pretrained(cfg.model.pretrained_model_name_or_path)
-    input_set = torch.tensor(tokenized_set['input_ids'])
+    dataset = TensorDataset(torch.tensor(tokenized_set['input_ids']))
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    input_set.to(device)
+    # DataLoader 설정
+    dataloader = DataLoader(dataset, batch_size=10, shuffle=False, num_workers=4, pin_memory=True)
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     base_model.to(device)
 
-    for input_tokens in tqdm(input_set):
-        hidden_vectors.append(base_model(input_tokens.reshape(1, -1)).last_hidden_state[:, 0, :])
-    hidden_set = tokenized_set.add_column("hidden_vectors", hidden_vectors)
+    for input_tokens in tqdm(dataloader):
+        input_tokens = input_tokens[0].to(device)
+
+        with torch.no_grad():  # 그래디언트 계산 비활성화
+            output = base_model(input_tokens).last_hidden_state[:, 0, :].cpu().detach().numpy()
+            hidden_vectors.append(output)  # GPU 메모리 해제 및 numpy 배열로 변환
+        
+        # del input_tokens, output  # 불필요한 텐서 삭제
+        # torch.cuda.empty_cache() # GPU 캐시를 비워서 메모리 회수
+    hidden_set = tokenized_set.add_column("hidden_vectors", list(np.concatenate(hidden_vectors)))
     hidden_set.save_to_disk(os.path.join(cfg.data.train, cfg.model.name) + '_hidden')
     
     return hidden_set

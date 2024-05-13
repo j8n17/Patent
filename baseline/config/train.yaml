@@ -26,7 +26,7 @@ train:
   
   optim: adamw_torch
   
-  cls_head_only: False
+  cls_head_only: True
 
   use_step: True
   epochs: 10
