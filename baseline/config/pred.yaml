@@ -5,11 +5,11 @@ data:
 
 model:
   name: kobart
-  pretrained_model_name_or_path : "./results/kobart_10epoch" #'./results/test_checkpoint'
+  pretrained_model_name_or_path : "./results/save/kobart_10epoch" #'./results/test_checkpoint'
 
 pred:
-  batch_size: 1
+  batch_size: 16
   threshold: 0.5
-  submission_csv: './results/ctest_checkpoint/submission.csv'
+  submission_csv: './results/save/kobart_10epoch/submission.csv'
 
-  device: "cpu" # "cuda:0"
+  device: "cuda:0"

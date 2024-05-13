@@ -10,6 +10,8 @@ from datasets import Dataset, load_from_disk, DatasetDict
 import numpy as np
 import re
 from sklearn.model_selection import StratifiedKFold, KFold
+from transformers import AutoModel
+import torch
 
 def get_logger():
     logging.basicConfig(
@@ -62,7 +64,7 @@ def groupby_docId(docs, labels):
     data = pd.concat([texts_by_docId, SSnos_by_docId], axis=1)
     return data
 
-def get_dataset(cfg):
+def get_dataset(cfg, tokenizer):
     category_csv = cfg.data.category_csv
     train_csv = cfg.data.train_csv
     if os.path.isfile(category_csv) and os.path.isfile(train_csv):
@@ -80,7 +82,9 @@ def get_dataset(cfg):
     category_df = pd.read_csv(category_csv, dtype={'SSno': str})
     train_df = pd.read_csv(train_csv)
     train_set = Dataset.from_pandas(train_df)
-    return category_df, train_set
+    train_set = formatting_data(cfg, train_set, category_df)
+    train_set = tokenize_data(cfg, train_set, tokenizer)
+    return train_set, category_df
 
 def cleaning_data(text):
     text = re.sub(r'[^가-힣A-Za-z0-9,\. ]', '', text)
@@ -170,22 +174,62 @@ def load_data(cfg, tokenizer):
 
     logger.info('load dataset...')
 
-    if 'pred' in cfg: # pred
+    # pred
+    if 'pred' in cfg:
         category_df = pd.read_csv(cfg.data.category_csv, dtype={'SSno': str})
         df = pd.read_csv(cfg.data.test_csv)
         dataset = Dataset.from_pandas(df)
+
+        dataset = formatting_data(cfg, dataset, category_df)
+        dataset = tokenize_data(cfg, dataset, tokenizer)
+
+        return dataset, category_df
     
-    else: # train
+    # train
+    else:
+        if cfg.train.cls_head_only:
+            return get_hiddenset(cfg, tokenizer)
         if os.path.isdir(os.path.join(cfg.data.train, cfg.model.name)):
-            logger.info('loaded from disk!')
+            logger.info('load tokenized set from disk!')
             tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.model.name))
             return tokenized_set, None
-        category_df, dataset = get_dataset(cfg)
+        return get_dataset(cfg, tokenizer)
 
-    dataset = formatting_data(cfg, dataset, category_df)
-    dataset = tokenize_data(cfg, dataset, tokenizer)
+def get_hiddenset(cfg, tokenizer):
+    '''
+    cls head only 학습을 위한 base model의 hidden vector로 이뤄진 dataset
+    '''
+    tokenizedset_path = os.path.join(cfg.data.train, cfg.model.name)
+    hiddenset_path = tokenizedset_path + '_hidden'
+
+    if os.path.isdir(hiddenset_path):
+        logger.info('load hidden set from disk!')
+        hidden_set = load_from_disk(hiddenset_path)
+        return hidden_set, None
+    elif os.path.isdir(tokenizedset_path):
+        logger.info('load tokenized set from disk!')
+        tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.model.name))
+    else:
+        tokenized_set, _ = get_dataset(cfg, tokenizer)
     
-    return dataset, category_df
+    return compute_hidden(cfg, tokenized_set)
+
+def compute_hidden(cfg, tokenized_set):
+    logger.info('computing hidden vectors...')
+    hidden_vectors = []
+    base_model = AutoModel.from_pretrained(cfg.model.pretrained_model_name_or_path)
+    input_set = torch.tensor(tokenized_set['input_ids'])
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    input_set.to(device)
+    base_model.to(device)
+
+    for input_tokens in tqdm(input_set):
+        hidden_vectors.append(base_model(input_tokens.reshape(1, -1)).last_hidden_state[:, 0, :])
+    hidden_set = tokenized_set.add_column("hidden_vectors", hidden_vectors)
+    hidden_set.save_to_disk(os.path.join(cfg.data.train, cfg.model.name) + '_hidden')
+    
+    return hidden_set
 
 def make_kfold_indices(cfg):
     logger.info('make kfold indices...')

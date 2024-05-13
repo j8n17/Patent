@@ -13,7 +13,7 @@ from pathlib import Path
 import random
 import torch
 from datasets import Dataset, load_from_disk
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, BartTokenizer
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from tokenizers.processors import TemplateProcessing
 from transformers import Trainer, TrainingArguments
 from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data
@@ -72,21 +72,11 @@ def load_model(cfg):
         num_labels = cfg.model.num_labels,
     )
 
-    if cfg.model.finetune:
-        for name, param in model.named_parameters():
-            if not any(k in name for k in ['classifier', 'classification_head']):
-                param.requires_grad = False
-        
-        def check_freezing(model):
-            trainable_weights = []
-            for name, param in model.named_parameters():
-                if param.requires_grad:
-                    trainable_weights.append(name)
-            logger.info(f'trainable_weights: {trainable_weights}')
-
-        check_freezing(model)
+    if cfg.train.cls_head_only:
+        logger.info('train classification head only...')
+        model = model.classification_head
     else:
-        logger.info('not fine-tuning...')
+        logger.info('train entire model...')
 
     return tokenizer, model
 
@@ -102,6 +92,16 @@ class CustomTrainer(Trainer):
         )
         # print(self.tokenizer.decode(inputs['input_ids'][0])) # 모델 입력이 어떤 순서로 나오는지 확인을 위함
         loss = self.loss_fn(outputs.logits, inputs['labels'])
+        return (loss, outputs) if return_outputs else loss
+    
+class ClsHeadTrainer(Trainer):
+    def __init__(self, *args, loss_fn, **kargs):
+        super().__init__(*args, **kargs)
+        self.loss_fn = loss_fn
+    
+    def compute_loss(self, model, inputs, return_outputs=False):
+        outputs = model(inputs['hidden_vectors'])
+        loss = self.loss_fn(outputs, inputs['labels'])
         return (loss, outputs) if return_outputs else loss
 
 def get_trainer(cfg, model, tokenizer, dataset):
@@ -178,15 +178,27 @@ def get_trainer(cfg, model, tokenizer, dataset):
     # validation OOM 문제 해결 방법 - https://discuss.huggingface.co/t/cuda-out-of-memory-when-using-trainer-with-compute-metrics/2941/13
 
     loss_fn = get_loss_fn(cfg)
-    trainer = CustomTrainer(
-        model = model,
-        args = training_args,
-        train_dataset = dataset['train'],
-        eval_dataset = dataset['test'],
-        tokenizer = tokenizer,
-        loss_fn=loss_fn,
-        # compute_metrics=compute_metrics,
-    )
+
+    if cfg.train.cls_head_only:
+        trainer = ClsHeadTrainer(
+            model = model,
+            args = training_args,
+            train_dataset = dataset['train'],
+            eval_dataset = dataset['test'],
+            tokenizer = tokenizer,
+            loss_fn=loss_fn,
+            # compute_metrics=compute_metrics,
+        )
+    else:
+        trainer = CustomTrainer(
+            model = model,
+            args = training_args,
+            train_dataset = dataset['train'],
+            eval_dataset = dataset['test'],
+            tokenizer = tokenizer,
+            loss_fn=loss_fn,
+            # compute_metrics=compute_metrics,
+        )
 
     logger.info(f"trainer: {trainer.args}")
     return trainer
