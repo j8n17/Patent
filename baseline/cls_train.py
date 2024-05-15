@@ -21,17 +21,49 @@ import torch
 from torch.utils.data import Sampler
 import numpy as np
 
+class SequentialUpsamplingSampler(Sampler):
+    def __init__(self, data_source, labels):
+        self.data_source = data_source
+        self.labels = labels
+        self.indices = self._make_sequential_indices()
+
+    def _make_sequential_indices(self):
+        # 원핫 인코딩된 레이블에서 각 클래스의 인덱스 추출
+        class_indices = [np.where(self.labels[:, i] == 1)[0] for i in range(self.labels.shape[1])]
+
+        # 가장 많은 데이터를 가진 클래스의 데이터 수
+        max_size = max(len(indices) for indices in class_indices)
+
+        # 모든 클래스를 가장 큰 클래스 크기로 업샘플링
+        upsampled_indices = [np.random.choice(indices, max_size, replace=True) for indices in class_indices]
+
+        # 각 클래스에서 순차적으로 하나씩 인덱스 추출
+        sequential_indices = []
+        for idx in range(max_size):
+            for class_group in upsampled_indices:
+                sequential_indices.append(class_group[idx])
+
+        return sequential_indices
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
+    
 class ClsHeadTrainer():
     def __init__(self, cfg, model, dataset):
         logger.info('getting cls head trainer...') 
         self.model = model
         self.epoch = cfg.train.epochs
-        # sampler = SequentialUpsamplingSampler(dataset, dataset['labels'])
         dataset.set_format(type="torch", columns=["hidden_vectors", "labels"])
-        self.train_loader = DataLoader(dataset['train'], batch_size=cfg.train.batch_size, shuffle=True)
+        sampler = SequentialUpsamplingSampler(dataset['train'], dataset['train']['labels']) # todo 3 - train_loader에 sampler 추가!
+        self.train_loader = DataLoader(dataset['train'], batch_size=cfg.train.batch_size, sampler=sampler)
         self.val_loader = DataLoader(dataset['test'], batch_size=cfg.train.batch_size, shuffle=False)
         self.optim = AdamW(self.model.parameters(), lr=1e-5)
         self.loss_fn = get_loss_fn(cfg)
+        self.device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+        self.model.to(self.device)
     
     def compute_loss(self, model, inputs, labels, return_outputs=False):
         outputs = model(inputs)
@@ -56,35 +88,43 @@ class ClsHeadTrainer():
             }
     
     def train(self, resume_from_checkpoint=None):
-        device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-        self.model.to(device)
+        self.validation()
+        
         for epoch in range(self.epoch):
             train_loss = 0
             self.model.train()
             for batch in tqdm(self.train_loader):
                 self.optim.zero_grad()
-                inputs = batch['hidden_vectors'].to(device)
-                labels = batch['labels'].to(device)
+                inputs = batch['hidden_vectors'].to(self.device)
+                labels = batch['labels'].to(self.device)
                 loss = self.compute_loss(self.model, inputs, labels)
                 train_loss += loss
                 loss.backward()
                 self.optim.step()
             print(f'Epoch {epoch + 1}, Training Loss: {train_loss}')
 
-            val_loss = 0
-            self.model.eval() # Switch to evaluation mode for validation
-            with torch.no_grad():
-                output_ls = []
-                label_ls = []
-                for batch in self.val_loader:
-                    inputs = batch['hidden_vectors'].to(device)
-                    labels = batch['labels'].to(device)
-                    loss, outputs = self.compute_loss(self.model, inputs, labels, return_outputs=True)
-                    output_ls.append(outputs.cpu().detach().numpy())
-                    label_ls.append(labels.cpu().detach().numpy())
-                    val_loss += loss.item()
-            output_ls = np.concatenate(output_ls)
-            label_ls = np.concatenate(label_ls)
+            output_ls, label_ls, val_loss = self.validation()
 
             print(f'Epoch {epoch + 1}, Validation Loss: {val_loss}, {self.compute_metrics(output_ls, label_ls)}')
             torch.save(self.model.state_dict(), f'./results/cls_head/model_weights_epoch_{epoch+1}.pth')
+
+    def validation(self, checkpoint_path=None):
+        val_loss = 0
+        self.model.eval() # Switch to evaluation mode for validation
+        with torch.no_grad():
+            output_ls = []
+            label_ls = []
+            for batch in self.val_loader:
+                inputs = batch['hidden_vectors'].to(self.device)
+                labels = batch['labels'].to(self.device)
+                loss, outputs = self.compute_loss(self.model, inputs, labels, return_outputs=True)
+                output_ls.append(outputs.cpu().detach().numpy())
+                label_ls.append(labels.cpu().detach().numpy())
+                val_loss += loss.item()
+        output_ls = np.concatenate(output_ls)
+        label_ls = np.concatenate(label_ls)
+
+        probalities = torch.sigmoid(torch.from_numpy(output_ls[0])).numpy()
+        print(np.mean(probalities), np.var(probalities))
+        
+        return output_ls, label_ls, val_loss

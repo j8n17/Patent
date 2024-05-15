@@ -6,7 +6,7 @@ import json
 from tqdm.auto import tqdm
 from pathlib import Path
 import logging
-from datasets import Dataset, load_from_disk, DatasetDict
+from datasets import Dataset, load_from_disk, DatasetDict, concatenate_datasets, Features
 import numpy as np
 import re
 from sklearn.model_selection import StratifiedKFold, KFold
@@ -242,30 +242,23 @@ def compute_hidden(cfg, tokenized_set):
     
     return hidden_set, None
 
-def make_kfold_indices(cfg):
+def make_kfold_indices(cfg, dataset):
     logger.info('make kfold indices...')
     '''
     Multi Label의 경우 Stratified KFold를 하기 어렵기 때문에,
     추후에 변경하더라도 일단은
     Multi Label은 KFold로 나누고 Single Label은 Stratified KFold로 나눈 후, 둘을 합쳐 사용한다.
     '''
-
-    df = pd.read_csv(cfg.data.train_csv)
-
-    multi_X = df[df["SSnos"].apply(lambda x: len(x)!=5)].index.to_numpy() # indice
-    single_X = df[df["SSnos"].apply(lambda x: len(x)==5)].index.to_numpy()
-    single_y = df.loc[single_X, "SSnos"].values
+    X = np.arange(len(dataset))
+    labels = np.array(dataset['labels'])
+    y = np.argmax(labels, axis=1)
 
     n_fold = cfg.data.n_fold
-    kf = KFold(n_splits=n_fold, shuffle=True, random_state=cfg.data.split_seed)
     skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.data.split_seed)
 
     train_test_indices = []
-    for (single_train_idx, single_test_idx), (multi_train_idx, multi_test_idx) in zip(skf.split(single_X, single_y), kf.split(multi_X)):
-        train_test_indices.append([np.concatenate([single_train_idx, multi_train_idx]), np.concatenate([single_test_idx, multi_test_idx])])
-
-    # NumPy 배열로 변환
-    train_test_indices = np.array(train_test_indices, dtype=object)
+    for train_idx, test_idx in skf.split(X, y):
+        train_test_indices.append([train_idx, test_idx])
 
     # np.save("../data/train/kfold_indices.npy", train_test_indices) # 필요하면 저장 후 분석
     # test = np.load('./train/KFold_indices.npy', allow_pickle=True) # npy load
@@ -274,12 +267,7 @@ def make_kfold_indices(cfg):
 
 def split_data(cfg, dataset):
     logger.info('split dataset...')
-    # dataset = dataset.train_test_split(
-    #     test_size = 1/cfg.data.n_fold,
-    #     seed = cfg.data.split_seed,
-    # )
-
-    kfold_indices = make_kfold_indices(cfg)
+    kfold_indices = make_kfold_indices(cfg, dataset)
     train_idx, test_idx = kfold_indices[cfg.data.test_fold]
     
     dataset = DatasetDict({
@@ -288,6 +276,35 @@ def split_data(cfg, dataset):
     })
     
     return dataset
+
+def convert_single_label_dataset(dataset):
+    """Multi Label Dataset을 Single Label Dataset으로 변환."""
+    logger.info('convert to Single Label Dataset...')
+    expand_dataset = {feature: [] for feature in dataset.features}
+
+    # 멀티 라벨 데이터 확장
+    labels = np.array(dataset['labels'])
+    sums = np.sum(labels, axis=1)
+    remove_indices = np.where(sums != 1)[0]
+    remain_indices = np.where(sums == 1)[0]
+
+    for i in remove_indices.tolist():
+        example = dataset[i]
+        labels = example['labels']
+        for i, label in enumerate(labels):
+            if label == True:
+                for feature in dataset.features:
+                    if feature == 'labels':
+                        new_labels = [False] * 564
+                        new_labels[i] = True
+                        expand_dataset[feature].append(new_labels)
+                    else:
+                        expand_dataset[feature].append(example[feature])
+
+    expand_dataset = Dataset.from_dict(expand_dataset, features=Features(dataset.features))
+    dataset = dataset.select(remain_indices)
+    
+    return concatenate_datasets([dataset, expand_dataset])
 
 def main(cfg):
     get_dataset(cfg)

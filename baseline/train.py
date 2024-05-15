@@ -16,7 +16,7 @@ from datasets import Dataset, load_from_disk
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from tokenizers.processors import TemplateProcessing
 from transformers import Trainer, TrainingArguments
-from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data
+from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data, convert_single_label_dataset
 from sklearn.metrics import f1_score
 import math
 import torch.nn as nn
@@ -197,6 +197,7 @@ def main(cfg):
     tokenizer, model = load_model(cfg)
 
     dataset, _ = load_data(cfg, tokenizer)
+    dataset = convert_single_label_dataset(dataset)
     dataset = split_data(cfg, dataset)
     logger.info(dataset)
     
