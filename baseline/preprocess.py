@@ -227,6 +227,7 @@ def compute_hidden(cfg, tokenized_set):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     base_model.to(device)
 
+    # todo dataset.map으로 바꾸기
     for input_tokens in tqdm(dataloader):
         input_tokens = input_tokens[0].to(device)
 
@@ -239,7 +240,7 @@ def compute_hidden(cfg, tokenized_set):
     hidden_set = tokenized_set.add_column("hidden_vectors", list(np.concatenate(hidden_vectors)))
     hidden_set.save_to_disk(os.path.join(cfg.data.train, cfg.model.name) + '_hidden')
     
-    return hidden_set
+    return hidden_set, None
 
 def make_kfold_indices(cfg):
     logger.info('make kfold indices...')

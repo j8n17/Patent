@@ -19,6 +19,8 @@ from transformers import Trainer, TrainingArguments
 from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data
 from sklearn.metrics import f1_score
 import math
+import torch.nn as nn
+from cls_train import ClsHeadTrainer
 
 def get_logger():
     logging.basicConfig(
@@ -77,6 +79,9 @@ def load_model(cfg):
         model = model.classification_head
     else:
         logger.info('train entire model...')
+        loaded_state_dict = torch.load('./results/cls_head/model_weights.pth')
+        model.classification_head.dense.load_state_dict({'weight': loaded_state_dict['dense.weight'], 'bias': loaded_state_dict['dense.bias']})
+        model.classification_head.out_proj.load_state_dict({'weight': loaded_state_dict['out_proj.weight'], 'bias': loaded_state_dict['out_proj.bias']})
 
     return tokenizer, model
 
@@ -90,22 +95,13 @@ class CustomTrainer(Trainer):
             input_ids=inputs['input_ids'],
             attention_mask=inputs['attention_mask'],
         )
-        # print(self.tokenizer.decode(inputs['input_ids'][0])) # 모델 입력이 어떤 순서로 나오는지 확인을 위함
         loss = self.loss_fn(outputs.logits, inputs['labels'])
-        return (loss, outputs) if return_outputs else loss
-    
-class ClsHeadTrainer(Trainer):
-    def __init__(self, *args, loss_fn, **kargs):
-        super().__init__(*args, **kargs)
-        self.loss_fn = loss_fn
-    
-    def compute_loss(self, model, inputs, return_outputs=False):
-        outputs = model(inputs['hidden_vectors'])
-        loss = self.loss_fn(outputs, inputs['labels'])
         return (loss, outputs) if return_outputs else loss
 
 def get_trainer(cfg, model, tokenizer, dataset):
     logger.info(f"build trainer...")
+    if cfg.train.cls_head_only:
+        return ClsHeadTrainer(cfg, model, dataset)
 
     if cfg.train.use_step:
         max_steps=math.ceil(len(dataset['train']) / cfg.train.batch_size) * cfg.train.epochs
@@ -179,26 +175,15 @@ def get_trainer(cfg, model, tokenizer, dataset):
 
     loss_fn = get_loss_fn(cfg)
 
-    if cfg.train.cls_head_only:
-        trainer = ClsHeadTrainer(
-            model = model,
-            args = training_args,
-            train_dataset = dataset['train'],
-            eval_dataset = dataset['test'],
-            tokenizer = tokenizer,
-            loss_fn=loss_fn,
-            # compute_metrics=compute_metrics,
-        )
-    else:
-        trainer = CustomTrainer(
-            model = model,
-            args = training_args,
-            train_dataset = dataset['train'],
-            eval_dataset = dataset['test'],
-            tokenizer = tokenizer,
-            loss_fn=loss_fn,
-            # compute_metrics=compute_metrics,
-        )
+    trainer = CustomTrainer(
+        model = model,
+        args = training_args,
+        train_dataset = dataset['train'],
+        eval_dataset = dataset['test'],
+        tokenizer = tokenizer,
+        loss_fn=loss_fn,
+        # compute_metrics=compute_metrics,
+    )
 
     logger.info(f"trainer: {trainer.args}")
     return trainer
