@@ -81,6 +81,35 @@ def load_model(cfg, dataset):
     if cfg.train.cls_head_only:
         logger.info('train classification head only...')
         model = model.classification_head
+    elif cfg.train.fine_tune.enable:
+        # for name, param in model.named_parameters():
+        #     if not any(k in name for k in ['classifier', 'classification_head']):
+        #         param.requires_grad = False
+
+        if cfg.model.name == 'kobart':
+            N = cfg.train.fine_tune.n_layer
+            logger.info(f'kobart classification_head & {N} layers fine-tuning...')
+
+            for param in model.parameters():
+                param.requires_grad = False
+
+            # 마지막 N개의 Encoder Layer의 파라미터를 unfreeze
+            for layer in model.model.encoder.layers[-N:]:
+                for param in layer.parameters():
+                    param.requires_grad = True
+
+            # Classification head의 파라미터를 학습 가능하게 설정
+            for param in model.classification_head.parameters():
+                param.requires_grad = True
+        
+        def check_freezing(model):
+            trainable_weights = []
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    trainable_weights.append(name)
+            logger.info(f'trainable_weights: {trainable_weights}')
+
+        check_freezing(model)
     else:
         logger.info('train entire model...')
         loaded_state_dict = torch.load('./results/cls_head/model_weights.pth')

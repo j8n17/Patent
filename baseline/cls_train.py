@@ -61,7 +61,7 @@ class ClsHeadTrainer():
         sampler = SequentialUpsamplingSampler(dataset['train'], dataset['train']['labels'])
         self.train_loader = DataLoader(dataset['train'], batch_size=cfg.train.batch_size, sampler=sampler)
         self.val_loader = DataLoader(dataset['test'], batch_size=cfg.train.batch_size, shuffle=False)
-        self.optim = AdamW(self.model.parameters(), lr=cfg.train.learning_rate)
+        self.optim = AdamW(filter(lambda p: p.requires_grad, self.model.parameters()), lr=cfg.train.learning_rate)
         self.loss_fn = get_loss_fn(cfg, len(dataset['train'][0]['labels']) - 1)
         self.device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
         self.model.to(self.device)
