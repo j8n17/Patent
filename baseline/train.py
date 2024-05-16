@@ -16,7 +16,7 @@ from datasets import Dataset, load_from_disk
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from tokenizers.processors import TemplateProcessing
 from transformers import Trainer, TrainingArguments
-from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data, convert_single_label_dataset
+from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data, convert_single_label_dataset, add_hierarchical_labels
 from sklearn.metrics import f1_score
 import math
 import torch.nn as nn
@@ -54,14 +54,14 @@ def set_gpu(cfg):
     logger.info(f"CUDA_VISIBLE_DEVICES: {cfg.train.gpu_id}")
     os.environ['CUDA_VISIBLE_DEVICES'] = str(cfg.train.gpu_id)
 
-def load_model(cfg):
-    logger.info('load model...')
+def load_tokenizer(cfg):
+    logger.info('load tokenizer...')
     tokenizer = AutoTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path)
     if 'kobart' in cfg.model.name:
         tokenizer.bos_token_id = 0
         bos = tokenizer.bos_token
         eos = tokenizer.eos_token
-        tokenizer._tokenizer.post_processor =TemplateProcessing(
+        tokenizer._tokenizer.post_processor = TemplateProcessing(
             single=f"{bos}:0 $A:0 {eos}:0",
             pair=f"{bos}:0 $A:0 {eos}:0 {bos}:1 $B:1 {eos}:1",
             special_tokens=[
@@ -69,9 +69,13 @@ def load_model(cfg):
                 (f"{eos}", tokenizer.eos_token_id)
             ],
         )
+    return tokenizer
+
+def load_model(cfg, dataset):
+    logger.info('load model...')
     model = AutoModelForSequenceClassification.from_pretrained(
         pretrained_model_name_or_path = cfg.model.pretrained_model_name_or_path,
-        num_labels = cfg.model.num_labels,
+        num_labels = len(dataset['train'][0]['labels'])
     )
 
     if cfg.train.cls_head_only:
@@ -83,7 +87,7 @@ def load_model(cfg):
         model.classification_head.dense.load_state_dict({'weight': loaded_state_dict['dense.weight'], 'bias': loaded_state_dict['dense.bias']})
         model.classification_head.out_proj.load_state_dict({'weight': loaded_state_dict['out_proj.weight'], 'bias': loaded_state_dict['out_proj.bias']})
 
-    return tokenizer, model
+    return model
 
 class CustomTrainer(Trainer):
     def __init__(self, *args, loss_fn, **kargs):
@@ -173,7 +177,7 @@ def get_trainer(cfg, model, tokenizer, dataset):
     
     # validation OOM 문제 해결 방법 - https://discuss.huggingface.co/t/cuda-out-of-memory-when-using-trainer-with-compute-metrics/2941/13
 
-    loss_fn = get_loss_fn(cfg)
+    loss_fn = get_loss_fn(cfg, len(dataset['train'][0]['labels']) - 1)
 
     trainer = CustomTrainer(
         model = model,
@@ -194,13 +198,16 @@ def main(cfg):
     set_seed(cfg)
     set_gpu(cfg)
 
-    tokenizer, model = load_model(cfg)
+    tokenizer = load_tokenizer(cfg)
 
     dataset, _ = load_data(cfg, tokenizer)
     dataset = convert_single_label_dataset(dataset)
+    if any(cfg.train.hierarchical.values()):
+        dataset = add_hierarchical_labels(cfg, dataset)
     dataset = split_data(cfg, dataset)
     logger.info(dataset)
     
+    model = load_model(cfg, dataset)
     trainer = get_trainer(cfg, model, tokenizer, dataset)
     
     if os.path.isdir(cfg.train.checkpoint_path):

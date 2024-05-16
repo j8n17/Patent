@@ -13,6 +13,7 @@ from sklearn.model_selection import StratifiedKFold, KFold
 from transformers import AutoModel
 import torch
 from torch.utils.data import DataLoader, TensorDataset
+from sklearn.preprocessing import OneHotEncoder
 
 def get_logger():
     logging.basicConfig(
@@ -288,6 +289,7 @@ def convert_single_label_dataset(dataset):
     remove_indices = np.where(sums != 1)[0]
     remain_indices = np.where(sums == 1)[0]
 
+    num_class = len(labels[0])
     for i in remove_indices.tolist():
         example = dataset[i]
         labels = example['labels']
@@ -295,7 +297,7 @@ def convert_single_label_dataset(dataset):
             if label == True:
                 for feature in dataset.features:
                     if feature == 'labels':
-                        new_labels = [False] * 564
+                        new_labels = [False] * num_class
                         new_labels[i] = True
                         expand_dataset[feature].append(new_labels)
                     else:
@@ -305,6 +307,31 @@ def convert_single_label_dataset(dataset):
     dataset = dataset.select(remain_indices)
     
     return concatenate_datasets([dataset, expand_dataset])
+
+def add_hierarchical_labels(cfg, dataset):
+    logger.info('add hierarchical labels...')
+    category_df = pd.read_csv('../data/category.csv')
+    labels = np.array(dataset['labels'])
+    labels_idx = np.argmax(labels, axis=1)
+
+    encoder = OneHotEncoder(sparse_output=False, dtype=bool)
+
+    extended_labels = []
+    for key, value in cfg.train.hierarchical.items():
+        if key=='SSno' and value:
+            SSno_onehot = np.array(dataset['labels'])
+            extended_labels.append(SSno_onehot)
+        elif value:
+            hierarchical_labels = category_df.loc[labels_idx, key].values
+            one_hot = encoder.fit_transform(hierarchical_labels.reshape(-1, 1))
+            extended_labels.append(one_hot)
+
+    extended_labels = np.concatenate(extended_labels, axis=1)
+
+    dataset = dataset.remove_columns('labels')
+    dataset = dataset.add_column('labels', extended_labels.tolist())
+
+    return dataset
 
 def main(cfg):
     get_dataset(cfg)

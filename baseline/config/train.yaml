@@ -18,6 +18,12 @@ model:
   num_labels: 564
 
 train:
+  hierarchical: 
+    SSno: False
+    Sno: False
+    Mno: False
+    Lno: False
+    LLno: True
   checkpoint_path: ''
 
   seed: 42
@@ -44,4 +50,3 @@ train:
     name: FocalLoss
     params:
       gamma: 2 # gamma가 커질수록 어려운 데이터에 더 집중함.
-      pos_weight: 564 #472 # 한 데이터의 모든 클래스의 확률에 대해서 학습, 정답이 1개인 데이터는 pos_weight 564. 하지만 여러개면 pos_weight 낮아져야함.

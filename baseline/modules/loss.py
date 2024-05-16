@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 
-def get_loss_fn(cfg):
+def get_loss_fn(cfg, pos_weight):
     name = cfg.train.loss.name
     params = cfg.train.loss.params
+    params['pos_weight'] = pos_weight
     loss_fn = LOSS_FUNTIONS[name](**params)
     return loss_fn
 
