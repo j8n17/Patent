@@ -308,7 +308,20 @@ def convert_single_label_dataset(dataset):
     
     return concatenate_datasets([dataset, expand_dataset])
 
+def pass_add_labels(my_dict):
+    # Check if the key 'SSno' exists and its value is True
+    logger.info('use just SSnos...')
+    if my_dict.get('SSno') == True:
+        # Check if all other keys have the value False
+        for key, value in my_dict.items():
+            if key != 'SSno' and value != False:
+                return False
+        return True
+    return False
+
 def add_hierarchical_labels(cfg, dataset):
+    if pass_add_labels(cfg.train.hierarchical):
+        return dataset
     logger.info('add hierarchical labels...')
     category_df = pd.read_csv('../data/category.csv')
     labels = np.array(dataset['labels'])
