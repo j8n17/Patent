@@ -54,6 +54,18 @@ def set_gpu(cfg):
     logger.info(f"CUDA_VISIBLE_DEVICES: {cfg.train.gpu_id}")
     os.environ['CUDA_VISIBLE_DEVICES'] = str(cfg.train.gpu_id)
 
+def set_model_name(cfg):
+    model_name = cfg.model.name
+
+    if model_name == 'kobart':
+        cfg.model.pretrained_model_name_or_path = 'gogamza/kobart-base-v2'
+    if model_name == 'koelectra':
+        cfg.model.pretrained_model_name_or_path = 'monologg/koelectra-small-v3-discriminator'
+    if model_name == 'kopatelectra':
+        cfg.model.pretrained_model_name_or_path = './KIPIKorPatELECTRA/KorPatELECTRA/PT'
+
+    logger.info(f'model_path : {cfg.model.pretrained_model_name_or_path}')
+
 def load_tokenizer(cfg):
     logger.info('load tokenizer...')
     tokenizer = AutoTokenizer.from_pretrained(cfg.model.pretrained_model_name_or_path)
@@ -100,6 +112,22 @@ def load_model(cfg, dataset):
 
             # Classification head의 파라미터를 학습 가능하게 설정
             for param in model.classification_head.parameters():
+                param.requires_grad = True
+        
+        elif cfg.model.name == 'kopatelectra':
+            N = cfg.train.fine_tune.n_layer
+            logger.info(f'kopatelectra classifier & {N} layers fine-tuning...')
+
+            for param in model.parameters():
+                param.requires_grad = False
+
+            # 마지막 N개의 Encoder Layer의 파라미터를 unfreeze
+            for layer in model.electra.encoder.layer[-N:]:
+                for param in layer.parameters():
+                    param.requires_grad = True
+
+            # Classification head의 파라미터를 학습 가능하게 설정
+            for param in model.classifier.parameters():
                 param.requires_grad = True
         
         def check_freezing(model):
@@ -226,13 +254,13 @@ def main(cfg):
     logger = get_logger()
     set_seed(cfg)
     set_gpu(cfg)
+    set_model_name(cfg)
 
     tokenizer = load_tokenizer(cfg)
 
     dataset, _ = load_data(cfg, tokenizer)
     dataset = convert_single_label_dataset(dataset)
-    if any(cfg.train.hierarchical.values()):
-        dataset = add_hierarchical_labels(cfg, dataset)
+    dataset = add_hierarchical_labels(cfg, dataset)
     dataset = split_data(cfg, dataset)
     logger.info(dataset)
     

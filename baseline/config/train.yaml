@@ -11,20 +11,20 @@ data:
   debug: false
 
 model:
-  name: kobart
-  # pretrained_model_name_or_path : "/content/drive/MyDrive/졸업 논문/baseline/results/checkpoint-6000" # 'monologg/koelectra-small-v3-discriminator'
-  # pretrained_model_name_or_path : "./KIPIKorPatELECTRA/KorPatELECTRA/PT"
-  pretrained_model_name_or_path : "gogamza/kobart-base-v2"
+  name: kopatelectra
+  # name: koelectra
+  # name: kobart
   num_labels: 564
 
 train:
+  checkpoint_path: ''
+
   hierarchical: 
-    SSno: False
+    SSno: True
     Sno: False
     Mno: False
     Lno: False
-    LLno: True
-  checkpoint_path: ''
+    LLno: False
 
   seed: 42
   deterministic: False
