@@ -94,9 +94,6 @@ def load_model(cfg, dataset):
         logger.info('train classification head only...')
         model = model.classification_head
     elif cfg.train.fine_tune.enable:
-        # for name, param in model.named_parameters():
-        #     if not any(k in name for k in ['classifier', 'classification_head']):
-        #         param.requires_grad = False
 
         if cfg.model.name == 'kobart':
             N = cfg.train.fine_tune.n_layer
