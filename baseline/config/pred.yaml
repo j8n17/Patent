@@ -7,6 +7,9 @@ model:
   pretrained_model_name_or_path : "./results/save/kobart_3epoch"
 
 pred:
+  method: argmax
+  # method: threshold
+
   batch_size: 16
   threshold: 0.5
   submission_csv: './results/save/kobart_3epoch/submission.csv'

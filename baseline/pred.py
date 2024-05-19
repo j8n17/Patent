@@ -70,8 +70,16 @@ def pred(cfg, dataset, model, tokenizer):
     
     ids = np.concatenate(result_ids)
     logits = np.concatenate(result_logits)
-    logits = torch.from_numpy(logits)
-    preds = (torch.sigmoid(logits) > threshold)
+
+    if cfg.pred.method == 'threshold':
+        logits = torch.from_numpy(logits)
+        preds = (torch.sigmoid(logits) > threshold)
+    elif cfg.pred.method == 'argmax':
+        max_values = np.max(logits, axis=1, keepdims=True)
+        preds = np.equal(logits, max_values)
+        preds = torch.from_numpy(preds)
+    else:
+        raise ValueError
 
     return ids, preds
 
