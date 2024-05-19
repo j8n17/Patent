@@ -78,7 +78,7 @@ def pred(cfg, dataset, model, tokenizer):
 def save_submission(cfg, ids, preds, category_df):
     idx_to_SSno = category_df.SSno.values
     SSnos = [
-        ' '.join(idx_to_SSno[idx] for idx in pred.nonzero()[0])
+        ' '.join(idx_to_SSno[idx] for idx in pred.nonzero())
         for pred in preds
     ]
     submission = pd.DataFrame({
