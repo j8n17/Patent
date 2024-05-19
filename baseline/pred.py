@@ -71,13 +71,50 @@ def pred(cfg, dataset, model, tokenizer):
     ids = np.concatenate(result_ids)
     logits = np.concatenate(result_logits)
 
-    if cfg.pred.method == 'threshold':
-        logits = torch.from_numpy(logits)
-        preds = (torch.sigmoid(logits) > threshold)
+    logits = torch.from_numpy(logits)
+
+    if cfg.pred.method == 'prob_threshold':
+        preds = torch.sigmoid(logits) > threshold
+
     elif cfg.pred.method == 'argmax':
-        max_values = np.max(logits, axis=1, keepdims=True)
-        preds = np.equal(logits, max_values)
-        preds = torch.from_numpy(preds)
+        max_values = logits.max(dim=1, keepdim=True).values
+        preds = logits == max_values
+
+    elif cfg.pred.method == 'auto_ratio_threshold':
+        # 특징 : 높은 확률로 예측한 클래스가 있는 데이터인지와 상관없이, multi label이 될 수 있다?
+        threshold = 1
+        n_single_pred = logits.shape[0] * 0.8476
+        max_values = logits.max(dim=1, keepdim=True).values
+
+        while (logits >= threshold * max_values).sum(dim=1).eq(1).sum() > n_single_pred:
+            threshold -= 0.0005
+
+        print(f"ratio_threshold : {threshold}")
+
+        preds = logits >= threshold * max_values
+
+    elif cfg.pred.method == 'auto_prob_threshold':
+        # single predict 개수에 맞게 예측하도록 threshold를 찾는 경우
+        # 특징 : 높은 확률로 예측한 클래스가 있는 데이터가 multi label일 확률이 높다?
+        threshold = 1
+        n_single_pred = logits.shape[0] * 0.8476
+
+        def count_single_predictions(logits, threshold):
+            preds = torch.sigmoid(logits) > threshold
+            pred_counts = preds.sum(dim=1)
+            return (pred_counts == 0).sum() + (pred_counts == 1).sum()
+
+        while count_single_predictions(logits, threshold) > n_single_pred:
+            threshold -= 0.0005
+
+        print(f"prob_threshold : {threshold}")
+
+        preds_prob = torch.sigmoid(logits) > threshold
+        max_values = logits.max(dim=1, keepdim=True).values
+        preds_argmax = logits == max_values
+
+        preds = preds_prob | preds_argmax
+
     else:
         raise ValueError
 
