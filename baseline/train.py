@@ -160,7 +160,7 @@ class CustomTrainer(Trainer):
         loss = self.loss_fn(outputs.logits, inputs['labels'])
         return (loss, outputs) if return_outputs else loss
 
-def get_trainer(cfg, model, tokenizer, dataset):
+def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
     logger.info(f"build trainer...")
     if cfg.train.cls_head_only:
         return ClsHeadTrainer(cfg, model, dataset)
@@ -236,7 +236,7 @@ def get_trainer(cfg, model, tokenizer, dataset):
     
     # validation OOM 문제 해결 방법 - https://discuss.huggingface.co/t/cuda-out-of-memory-when-using-trainer-with-compute-metrics/2941/13
 
-    loss_fn = get_loss_fn(cfg, len(dataset['train'][0]['labels']) - 1)
+    loss_fn = get_loss_fn(cfg, pos_weights)
 
     trainer = CustomTrainer(
         model = model,
@@ -263,11 +263,11 @@ def main(cfg):
     dataset, _ = load_data(cfg, tokenizer)
     dataset = convert_single_label_dataset(dataset)
     dataset = add_hierarchical_labels(cfg, dataset)
-    dataset = split_data(cfg, dataset)
+    dataset, pos_weights = split_data(cfg, dataset)
     logger.info(dataset)
     
     model = load_model(cfg, dataset)
-    trainer = get_trainer(cfg, model, tokenizer, dataset)
+    trainer = get_trainer(cfg, model, tokenizer, dataset, pos_weights)
     
     if os.path.isdir(cfg.train.checkpoint_path):
         logger.info(f'resume from {cfg.train.checkpoint_path}...')

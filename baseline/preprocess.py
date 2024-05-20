@@ -266,6 +266,16 @@ def make_kfold_indices(cfg, dataset):
 
     return train_test_indices
 
+def compute_pos_weights(dataset):
+    train_size = len(dataset['train'])
+    train_labels = np.array(dataset['train']['labels'])
+
+    pos_counts = train_labels.sum(axis=0)
+    neg_counts = np.ones_like(pos_counts) * train_size - pos_counts
+    pos_weights = neg_counts / pos_counts
+
+    return pos_weights
+
 def split_data(cfg, dataset):
     logger.info('split dataset...')
     kfold_indices = make_kfold_indices(cfg, dataset)
@@ -276,7 +286,7 @@ def split_data(cfg, dataset):
         "test": dataset.select(test_idx)
     })
     
-    return dataset
+    return dataset, compute_pos_weights(dataset)
 
 def convert_single_label_dataset(dataset):
     """Multi Label Dataset을 Single Label Dataset으로 변환."""
