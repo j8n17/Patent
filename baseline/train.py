@@ -57,12 +57,16 @@ def set_gpu(cfg):
 def set_model_name(cfg):
     model_name = cfg.model.name
 
-    if model_name == 'kobart':
+    if cfg.train.restart_path:
+        cfg.model.pretrained_model_name_or_path = cfg.train.restart_path
+    elif model_name == 'kobart':
         cfg.model.pretrained_model_name_or_path = 'gogamza/kobart-base-v2'
-    if model_name == 'koelectra':
+    elif model_name == 'koelectra':
         cfg.model.pretrained_model_name_or_path = 'monologg/koelectra-small-v3-discriminator'
-    if model_name == 'kopatelectra':
+    elif model_name == 'kopatelectra':
         cfg.model.pretrained_model_name_or_path = './KIPIKorPatELECTRA/KorPatELECTRA/PT'
+    else:
+        raise ValueError
 
     logger.info(f'model_path : {cfg.model.pretrained_model_name_or_path}')
 
@@ -210,8 +214,9 @@ def get_trainer(cfg, model, tokenizer, dataset):
         )
 
     def compute_metrics(pred):
-        labels = pred.label_ids
-        outputs = pred.predictions
+        # 계층적 학습이든 아니든 SSno output만 선택
+        labels = pred.label_ids[:, :564]
+        outputs = pred.predictions[:, :564]
 
         # [multi cls pred] sigmoid 값 0.5 이상 예측, micro F1-score 계산
         preds = torch.from_numpy(outputs)

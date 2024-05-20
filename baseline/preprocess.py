@@ -330,19 +330,26 @@ def add_hierarchical_labels(cfg, dataset):
     encoder = OneHotEncoder(sparse_output=False, dtype=bool)
 
     extended_labels = []
+    hierarchical_counts = {}
+    if cfg.train.hierarchical['SSno']:
+        SSno_onehot = np.array(dataset['labels'])
+        extended_labels.append(SSno_onehot)
+        hierarchical_counts['SSno'] = SSno_onehot.shape[1]
+
     for key, value in cfg.train.hierarchical.items():
-        if key=='SSno' and value:
-            SSno_onehot = np.array(dataset['labels'])
-            extended_labels.append(SSno_onehot)
+        if key=='SSno':
+            continue
         elif value:
             hierarchical_labels = category_df.loc[labels_idx, key].values
             one_hot = encoder.fit_transform(hierarchical_labels.reshape(-1, 1))
             extended_labels.append(one_hot)
+            hierarchical_counts[key] = one_hot.shape[1]
 
     extended_labels = np.concatenate(extended_labels, axis=1)
 
     dataset = dataset.remove_columns('labels')
     dataset = dataset.add_column('labels', extended_labels.tolist())
+    logger.info(f'hierarchical_labels [name:num] - {hierarchical_counts}')
 
     return dataset
 

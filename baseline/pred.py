@@ -66,7 +66,7 @@ def pred(cfg, dataset, model, tokenizer):
                 attention_mask = batch['attention_mask'].to(device),
             )
             result_ids.append(batch['documentId'].numpy())
-            result_logits.append(outputs.logits.detach().cpu().numpy())
+            result_logits.append(outputs.logits.detach().cpu().numpy()[:, :564]) # 계층적 라벨 학습이든 아니든 SSno 출력만 선택.
     
     ids = np.concatenate(result_ids)
     logits = np.concatenate(result_logits)

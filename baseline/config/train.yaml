@@ -17,6 +17,7 @@ model:
   num_labels: 564
 
 train:
+  restart_path: ''
   checkpoint_path: ''
 
   hierarchical: 
