@@ -284,9 +284,8 @@ def convert_single_label_dataset(dataset):
     
     return concatenate_datasets([dataset, expand_dataset])
 
-def pass_add_labels(my_dict):
+def only_ssnos(my_dict):
     # Check if the key 'SSno' exists and its value is True
-    logger.info('use just SSnos...')
     if my_dict.get('SSno') == True:
         # Check if all other keys have the value False
         for key, value in my_dict.items():
@@ -296,7 +295,8 @@ def pass_add_labels(my_dict):
     return False
 
 def add_hierarchical_labels(cfg, dataset):
-    if pass_add_labels(cfg.train.hierarchical):
+    if only_ssnos(cfg.train.hierarchical):
+        logger.info('use just SSnos...')
         return dataset
     logger.info('add hierarchical labels...')
     category_df = pd.read_csv('../data/category.csv')
