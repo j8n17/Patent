@@ -11,9 +11,9 @@ data:
   debug: false
 
 model:
-  name: kopatelectra
+  # name: kopatelectra
   # name: koelectra
-  # name: kobart
+  name: kobart
   num_labels: 564
 
 train:
@@ -38,7 +38,7 @@ train:
     n_layer: 2
 
   use_step: True
-  epochs: 10
+  epochs: 3
   batch_size: 16
   learning_rate: 5e-5
   warmup_steps: 0
