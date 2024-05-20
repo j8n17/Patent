@@ -14,6 +14,7 @@ from transformers import AutoModel
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import OneHotEncoder
+from imblearn.over_sampling import RandomOverSampler
 
 def get_logger():
     logging.basicConfig(
@@ -209,13 +210,22 @@ def make_kfold_indices(cfg, dataset):
     skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.data.split_seed)
 
     train_test_indices = []
+    ros = RandomOverSampler(random_state=cfg.train.seed)
     for train_idx, test_idx in skf.split(X, y):
-        train_test_indices.append([train_idx, test_idx])
+        train_test_indices.append([upsample(ros, train_idx, y) if cfg.data.upsampling else train_idx, test_idx])
 
     # np.save("../data/train/kfold_indices.npy", train_test_indices) # 필요하면 저장 후 분석
     # test = np.load('./train/KFold_indices.npy', allow_pickle=True) # npy load
 
     return train_test_indices
+
+def upsample(ros, train_idx, labels):
+    labels = labels[train_idx]
+    train_idx = train_idx.reshape(-1, 1)
+
+    resampled_train_idx, _ = ros.fit_resample(train_idx, labels)
+
+    return resampled_train_idx.flatten()
 
 def compute_pos_weights(dataset):
     train_size = len(dataset['train'])
@@ -236,8 +246,13 @@ def split_data(cfg, dataset):
         "train": dataset.select(train_idx),
         "test": dataset.select(test_idx)
     })
-    
-    return dataset, compute_pos_weights(dataset)
+
+    if 'train' in cfg:
+        pos_weights = compute_pos_weights(dataset)
+    else:
+        pos_weights = None
+
+    return dataset, pos_weights
 
 def convert_single_label_dataset(dataset):
     """Multi Label Dataset을 Single Label Dataset으로 변환."""

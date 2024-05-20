@@ -10,6 +10,8 @@ data:
   split_seed: 42
   debug: false
 
+  upsampling: True
+
 model:
   # name: kopatelectra
   # name: koelectra
