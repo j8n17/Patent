@@ -41,7 +41,7 @@ def load_model(cfg):
     )
     return tokenizer, model
 
-def pred(cfg, dataset, model, tokenizer):
+def inference(cfg, dataset, model):
     device = cfg.pred.device
     threshold = cfg.pred.threshold
 
@@ -70,9 +70,11 @@ def pred(cfg, dataset, model, tokenizer):
     
     ids = np.concatenate(result_ids)
     logits = np.concatenate(result_logits)
-
     logits = torch.from_numpy(logits)
 
+    return ids, logits
+
+def prediction(cfg, logits):
     if cfg.pred.method == 'prob_threshold':
         preds = torch.sigmoid(logits) > threshold
 
@@ -117,8 +119,8 @@ def pred(cfg, dataset, model, tokenizer):
 
     else:
         raise ValueError
-
-    return ids, preds
+    
+    return preds
 
 def save_submission(cfg, ids, preds, category_df):
     idx_to_SSno = category_df.SSno.values
@@ -137,7 +139,8 @@ def main(cfg):
 
     dataset, category_df = load_data(cfg, tokenizer)
 
-    ids, preds = pred(cfg, dataset, model, tokenizer)
+    ids, logits = inference(cfg, dataset, model)
+    preds = prediction(cfg, logits)
     save_submission(cfg, ids, preds, category_df)
 
 if __name__ == '__main__':
