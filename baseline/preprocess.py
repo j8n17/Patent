@@ -173,7 +173,6 @@ def tokenize_data(cfg, dataset, tokenizer):
     return tokenized
 
 def load_data(cfg, tokenizer):
-
     logger.info('load dataset...')
 
     # pred
@@ -189,59 +188,11 @@ def load_data(cfg, tokenizer):
     
     # train
     else:
-        if cfg.train.cls_head_only:
-            return get_hiddenset(cfg, tokenizer)
         if os.path.isdir(os.path.join(cfg.data.train, cfg.model.name)):
             logger.info('load tokenized set from disk!')
             tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.model.name))
             return tokenized_set, None
         return get_dataset(cfg, tokenizer)
-
-def get_hiddenset(cfg, tokenizer):
-    '''
-    cls head only 학습을 위한 base model의 hidden vector로 이뤄진 dataset
-    '''
-    tokenizedset_path = os.path.join(cfg.data.train, cfg.model.name)
-    hiddenset_path = tokenizedset_path + '_hidden'
-
-    if os.path.isdir(hiddenset_path):
-        logger.info('load hidden set from disk!')
-        hidden_set = load_from_disk(hiddenset_path)
-        return hidden_set, None
-    elif os.path.isdir(tokenizedset_path):
-        logger.info('load tokenized set from disk!')
-        tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.model.name))
-    else:
-        tokenized_set, _ = get_dataset(cfg, tokenizer)
-    
-    return compute_hidden(cfg, tokenized_set)
-
-def compute_hidden(cfg, tokenized_set):
-    logger.info('computing hidden vectors...')
-    hidden_vectors = []
-    base_model = AutoModel.from_pretrained(cfg.model.pretrained_model_name_or_path)
-    dataset = TensorDataset(torch.tensor(tokenized_set['input_ids']))
-
-    # DataLoader 설정
-    dataloader = DataLoader(dataset, batch_size=10, shuffle=False, num_workers=4, pin_memory=True)
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    base_model.to(device)
-
-    # todo dataset.map으로 바꾸기
-    for input_tokens in tqdm(dataloader):
-        input_tokens = input_tokens[0].to(device)
-
-        with torch.no_grad():  # 그래디언트 계산 비활성화
-            output = base_model(input_tokens).last_hidden_state[:, 0, :].cpu().detach().numpy()
-            hidden_vectors.append(output)  # GPU 메모리 해제 및 numpy 배열로 변환
-        
-        # del input_tokens, output  # 불필요한 텐서 삭제
-        # torch.cuda.empty_cache() # GPU 캐시를 비워서 메모리 회수
-    hidden_set = tokenized_set.add_column("hidden_vectors", list(np.concatenate(hidden_vectors)))
-    hidden_set.save_to_disk(os.path.join(cfg.data.train, cfg.model.name) + '_hidden')
-    
-    return hidden_set, None
 
 def make_kfold_indices(cfg, dataset):
     logger.info('make kfold indices...')
