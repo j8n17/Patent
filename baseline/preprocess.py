@@ -210,7 +210,7 @@ def make_kfold_indices(cfg, dataset):
     skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.data.split_seed)
 
     train_test_indices = []
-    ros = RandomOverSampler(random_state=cfg.train.seed)
+    ros = RandomOverSampler(random_state=cfg.setting.seed)
     for train_idx, test_idx in skf.split(X, y):
         train_test_indices.append([upsample(ros, train_idx, y) if cfg.data.upsampling else train_idx, test_idx])
 

@@ -39,10 +39,10 @@ def get_config(args):
     return OmegaConf.load(args.config)
 
 def set_seed(cfg):
-    if cfg.train.deterministic:
+    if cfg.setting.deterministic:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-    seed = cfg.train.seed
+    seed = cfg.setting.seed
 
     logger.info(f"set seed: {seed}")
     torch.manual_seed(seed)

@@ -29,8 +29,6 @@ train:
     Lno: False
     LLno: False
 
-  seed: 42
-  deterministic: False
   gpu_id: "0"
   
   optim: adamw_torch
@@ -55,3 +53,7 @@ train:
     name: FocalLoss
     params:
       gamma: 2 # gamma가 커질수록 어려운 데이터에 더 집중함.
+
+setting:
+  seed: 42
+  deterministic: False
