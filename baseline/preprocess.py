@@ -228,6 +228,7 @@ def upsample(ros, train_idx, labels):
     return resampled_train_idx.flatten()
 
 def compute_pos_weights(dataset):
+    logger.info('compute pos_weights...')
     train_size = len(dataset['train'])
     train_labels = np.array(dataset['train']['labels'])
 
@@ -247,12 +248,34 @@ def split_data(cfg, dataset):
         "test": dataset.select(test_idx)
     })
 
+    dataset['train'] = convert_multi_label_dataset(dataset['train'])
+
     if 'train' in cfg:
         pos_weights = compute_pos_weights(dataset)
     else:
         pos_weights = None
 
     return dataset, pos_weights
+
+def convert_multi_label_dataset(dataset):
+    logger.info('convert to Multi Label Dataset...')
+    combined_data = {}
+    
+    for entry in dataset:
+        doc_id = entry['documentId']
+        if doc_id not in combined_data:
+            combined_data[doc_id] = entry.copy()
+        else:
+            combined_data[doc_id]['labels'] = np.logical_or(combined_data[doc_id]['labels'], entry['labels']).tolist()
+
+    # Create the new dataset
+    new_dataset = []
+    for entry in combined_data.values():
+        new_dataset.append(entry)
+
+    new_dataset = Dataset.from_dict({key: [d[key] for d in new_dataset] for key in new_dataset[0]})
+        
+    return new_dataset
 
 def convert_single_label_dataset(dataset):
     """Multi Label Dataset을 Single Label Dataset으로 변환."""
