@@ -67,7 +67,7 @@ def groupby_docId(docs, labels):
     data = pd.concat([texts_by_docId, SSnos_by_docId], axis=1)
     return data
 
-def get_dataset(cfg, tokenizer):
+def make_dataset(cfg, tokenizer):
     category_csv = cfg.data.category_csv
     train_csv = cfg.data.train_csv
     if os.path.isfile(category_csv) and os.path.isfile(train_csv):
@@ -165,12 +165,6 @@ def tokenize_data(cfg, dataset, tokenizer):
         batched=True,
     )
 
-    if 'pred' in cfg:
-        return tokenized
-    
-    tokenized.save_to_disk(os.path.join(cfg.data.train, cfg.model.name))
-    logger.info('save tokenize dataset for next train!')
-
     return tokenized
 
 def load_data(cfg, tokenizer):
@@ -189,11 +183,25 @@ def load_data(cfg, tokenizer):
     
     # train
     else:
-        if os.path.isdir(os.path.join(cfg.data.train, cfg.model.name)):
-            logger.info('load tokenized set from disk!')
-            tokenized_set = load_from_disk(os.path.join(cfg.data.train, cfg.model.name))
-            return tokenized_set, None
-        return get_dataset(cfg, tokenizer)
+        return make_dataset(cfg, tokenizer)
+    
+def get_dataset(cfg, tokenizer):
+    dataset_path = os.path.join(cfg.data.train, cfg.model.name)
+
+    if os.path.isdir(dataset_path):
+        logger.info('load dataset from disk!')
+        dataset = load_from_disk(dataset_path)
+        category_df = pd.read_csv(cfg.data.category_csv, dtype={'SSno': str})
+        return dataset, category_df
+    
+    dataset, category_df = load_data(cfg, tokenizer)
+    dataset = convert_single_label_dataset(dataset)
+    dataset = split_data(cfg, dataset)
+    
+    dataset.save_to_disk(dataset_path)
+    logger.info('save dataset for next train!')
+
+    return dataset, category_df
 
 def make_kfold_indices(cfg, dataset):
     logger.info('make kfold indices...')
@@ -209,15 +217,15 @@ def make_kfold_indices(cfg, dataset):
     n_fold = cfg.data.n_fold
     skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.data.split_seed)
 
-    train_test_indices = []
+    kfold_indices = []
     ros = RandomOverSampler(random_state=cfg.setting.seed)
-    for train_idx, test_idx in skf.split(X, y):
-        train_test_indices.append([upsample(ros, train_idx, y) if cfg.data.upsampling else train_idx, test_idx])
+    for train_idx, valid_idx in skf.split(X, y):
+        kfold_indices.append([upsample(ros, train_idx, y) if cfg.data.upsampling else train_idx, valid_idx])
 
-    # np.save("../data/train/kfold_indices.npy", train_test_indices) # 필요하면 저장 후 분석
+    # np.save("../data/train/kfold_indices.npy", kfold_indices) # 필요하면 저장 후 분석
     # test = np.load('./train/KFold_indices.npy', allow_pickle=True) # npy load
 
-    return train_test_indices
+    return kfold_indices
 
 def upsample(ros, train_idx, labels):
     labels = labels[train_idx]
@@ -241,21 +249,16 @@ def compute_pos_weights(dataset):
 def split_data(cfg, dataset):
     logger.info('split dataset...')
     kfold_indices = make_kfold_indices(cfg, dataset)
-    train_idx, test_idx = kfold_indices[cfg.data.test_fold]
+    train_idx, valid_idx = kfold_indices[cfg.data.valid_fold]
     
     dataset = DatasetDict({
         "train": dataset.select(train_idx),
-        "test": dataset.select(test_idx)
+        "valid": dataset.select(valid_idx)
     })
 
     dataset['train'] = convert_multi_label_dataset(dataset['train'])
 
-    if 'train' in cfg:
-        pos_weights = compute_pos_weights(dataset)
-    else:
-        pos_weights = None
-
-    return dataset, pos_weights
+    return dataset
 
 def convert_multi_label_dataset(dataset):
     logger.info('convert to Multi Label Dataset...')
@@ -307,53 +310,41 @@ def convert_single_label_dataset(dataset):
     
     return concatenate_datasets([dataset, expand_dataset])
 
-def only_ssnos(my_dict):
-    # Check if the key 'SSno' exists and its value is True
-    if my_dict.get('SSno') == True:
-        # Check if all other keys have the value False
-        for key, value in my_dict.items():
-            if key != 'SSno' and value != False:
-                return False
-        return True
-    return False
+def add_hierarchical_labels(cfg, dataset, category_df):
+    extra_hierarchy = [key for key, value in cfg.train.extra_hierarchy.items() if value]
 
-def add_hierarchical_labels(cfg, dataset):
-    if only_ssnos(cfg.train.hierarchical):
+    if not extra_hierarchy:
         logger.info('use just SSnos...')
         return dataset
-    logger.info('add hierarchical labels...')
-    category_df = pd.read_csv('../data/category.csv')
-    labels = np.array(dataset['labels'])
-    labels_idx = np.argmax(labels, axis=1)
+    
+    logger.info(f'extra hierarchical labels - {extra_hierarchy}')
+    
+    for key in dataset.keys():
+        logger.info(f'add extra hierarchical labels for {key} dataset...')
+        labels = np.array(dataset[key]['labels'])
 
-    encoder = OneHotEncoder(sparse_output=False, dtype=bool)
+        num_classes = category_df[["SSno", "Sno", "Mno", "Lno", "LLno"]].nunique().to_dict()
 
-    extended_labels = []
-    hierarchical_counts = {}
-    if cfg.train.hierarchical['SSno']:
-        SSno_onehot = np.array(dataset['labels'])
-        extended_labels.append(SSno_onehot)
-        hierarchical_counts['SSno'] = SSno_onehot.shape[1]
+        extra_labels = []
+        for idx in labels:
+            entry_df = category_df.loc[idx]
+            extra_label = []
+            for hierarchy in extra_hierarchy:
+                onehot = np.full(num_classes[hierarchy], False)
+                indices = np.searchsorted(category_df[hierarchy].unique(), entry_df[hierarchy].values)
+                onehot[indices] = True
+                extra_label.append(onehot)
+            extra_labels.append(np.concatenate(extra_label))
+        extra_labels = np.array(extra_labels)
 
-    for key, value in cfg.train.hierarchical.items():
-        if key=='SSno':
-            continue
-        elif value:
-            hierarchical_labels = category_df.loc[labels_idx, key].values
-            one_hot = encoder.fit_transform(hierarchical_labels.reshape(-1, 1))
-            extended_labels.append(one_hot)
-            hierarchical_counts[key] = one_hot.shape[1]
-
-    extended_labels = np.concatenate(extended_labels, axis=1)
-
-    dataset = dataset.remove_columns('labels')
-    dataset = dataset.add_column('labels', extended_labels.tolist())
-    logger.info(f'hierarchical_labels [name:num] - {hierarchical_counts}')
+        extended_labels = np.concatenate([labels, extra_labels], axis=1)
+        new_dataset = dataset[key].remove_columns('labels')
+        dataset[key] = new_dataset.add_column('labels', extended_labels.tolist())
 
     return dataset
 
 def main(cfg):
-    get_dataset(cfg)
+    make_dataset(cfg)
 
 if __name__ == '__main__':
     args = parse_args()

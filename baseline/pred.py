@@ -12,7 +12,7 @@ from datasets import Dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from tokenizers.processors import TemplateProcessing
 from transformers import default_data_collator
-from preprocess import tokenize_data, formatting_data, load_data
+from preprocess import load_data
 
 def get_logger():
     logging.basicConfig(

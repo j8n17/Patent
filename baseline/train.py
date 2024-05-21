@@ -16,7 +16,7 @@ from datasets import Dataset, load_from_disk
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from tokenizers.processors import TemplateProcessing
 from transformers import Trainer, TrainingArguments
-from preprocess import get_dataset, formatting_data, tokenize_data, load_data, split_data, convert_single_label_dataset, add_hierarchical_labels
+from preprocess import load_data, split_data, convert_single_label_dataset, add_hierarchical_labels, get_dataset, compute_pos_weights
 from sklearn.metrics import f1_score
 import math
 import torch.nn as nn
@@ -231,7 +231,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
         model = model,
         args = training_args,
         train_dataset = dataset['train'],
-        eval_dataset = dataset['test'],
+        eval_dataset = dataset['valid'],
         tokenizer = tokenizer,
         loss_fn=loss_fn,
         # compute_metrics=compute_metrics,
@@ -249,11 +249,11 @@ def main(cfg):
 
     tokenizer = load_tokenizer(cfg)
 
-    dataset, _ = load_data(cfg, tokenizer)
-    dataset = convert_single_label_dataset(dataset)
-    dataset = add_hierarchical_labels(cfg, dataset)
-    dataset, pos_weights = split_data(cfg, dataset)
+    dataset, category_df = get_dataset(cfg, tokenizer)
+    dataset = add_hierarchical_labels(cfg, dataset, category_df)
     logger.info(dataset)
+
+    pos_weights = compute_pos_weights(dataset)
     
     model = load_model(cfg, dataset)
     trainer = get_trainer(cfg, model, tokenizer, dataset, pos_weights)
