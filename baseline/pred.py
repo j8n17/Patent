@@ -22,6 +22,8 @@ def get_logger():
     logger = logging.getLogger()
     return logger
 
+logger = get_logger()
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='./config/pred.yaml')
@@ -144,8 +146,6 @@ def main(cfg):
     save_submission(cfg, ids, preds, category_df)
 
 if __name__ == '__main__':
-    global logger
-    logger = get_logger()
     args = parse_args()
     cfg = get_config(args)
     main(cfg)

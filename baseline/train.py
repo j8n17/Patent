@@ -29,6 +29,8 @@ def get_logger():
     logger = logging.getLogger()
     return logger
 
+logger = get_logger()
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default='./config/train.yaml')
@@ -241,8 +243,6 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
     return trainer
 
 def main(cfg):
-    global logger
-    logger = get_logger()
     set_seed(cfg)
     set_gpu(cfg)
     set_model_name(cfg)
