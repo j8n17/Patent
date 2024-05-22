@@ -66,10 +66,9 @@ def inference(cfg, dataset, model):
                 input_ids = batch['input_ids'].to(device),
                 attention_mask = batch['attention_mask'].to(device),
             )
-            result_ids.append(batch['documentId'].numpy())
             result_logits.append(outputs.logits.detach().cpu()[:, :564]) # 계층적 라벨 학습이든 아니든 SSno 출력만 선택.
     
-    ids = np.concatenate(result_ids)
+    ids = np.array(dataset['documentId'])
     probs = torch.sigmoid(torch.concat(result_logits))
 
     return ids, probs
