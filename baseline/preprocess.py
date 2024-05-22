@@ -256,29 +256,32 @@ def split_data(cfg, dataset):
         "valid": dataset.select(valid_idx)
     })
 
-    dataset['train'] = convert_multi_label_dataset(dataset['train'])
+    dataset = convert_multi_label_dataset(dataset)
 
     return dataset
 
 def convert_multi_label_dataset(dataset):
-    logger.info('convert to Multi Label Dataset...')
-    combined_data = {}
-    
-    for entry in dataset:
-        doc_id = entry['documentId']
-        if doc_id not in combined_data:
-            combined_data[doc_id] = entry.copy()
-        else:
-            combined_data[doc_id]['labels'] = np.logical_or(combined_data[doc_id]['labels'], entry['labels']).tolist()
-
-    # Create the new dataset
-    new_dataset = []
-    for entry in combined_data.values():
-        new_dataset.append(entry)
-
-    new_dataset = Dataset.from_dict({key: [d[key] for d in new_dataset] for key in new_dataset[0]})
+    for key in dataset.keys():
+        logger.info(f'convert to Multi Label Dataset for {key} dataset...')
+        combined_data = {}
         
-    return new_dataset
+        for entry in dataset[key]:
+            doc_id = entry['documentId']
+            if doc_id not in combined_data:
+                combined_data[doc_id] = entry.copy()
+            else:
+                combined_data[doc_id]['labels'] = np.logical_or(combined_data[doc_id]['labels'], entry['labels']).tolist()
+
+        # Create the new dataset
+        new_dataset = []
+        for entry in combined_data.values():
+            new_dataset.append(entry)
+
+        new_dataset = Dataset.from_dict({key: [d[key] for d in new_dataset] for key in new_dataset[0]})
+
+        dataset[key] = new_dataset
+        
+    return dataset
 
 def convert_single_label_dataset(dataset):
     """Multi Label Dataset을 Single Label Dataset으로 변환."""
