@@ -26,7 +26,7 @@ train:
     Sno: False
     Mno: False
     Lno: False
-    LLno: False
+    LLno: True
 
   gpu_id: "0"
   
@@ -45,7 +45,7 @@ train:
   # early_stop_patience: 5
 
   output_dir: './results'
-  save_total_limit: 3
+  save_total_limit: 6
   report_to: ['tensorboard']
 
   loss:

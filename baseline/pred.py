@@ -121,19 +121,19 @@ def prediction(cfg, probs):
     else:
         raise ValueError
     
-    return preds
+    return preds.numpy()
 
 def save_submission(cfg, ids, preds, category_df):
     idx_to_SSno = category_df.SSno.values
     SSnos = [
-        ' '.join(idx_to_SSno[idx] for idx in pred.nonzero())
+        ' '.join(idx_to_SSno[idx] for idx in pred.nonzero()[0])
         for pred in preds
     ]
     submission = pd.DataFrame({
         'documentId': ids,
         'SSnos': SSnos,
     })
-    submission.to_csv(cfg.pred.submission_csv, index=False)
+    submission.to_csv(cfg.model.pretrained_model_name_or_path + '/submission.csv', index=False)
 
 def main(cfg):
     tokenizer, model = load_model(cfg)

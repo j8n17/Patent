@@ -82,7 +82,7 @@ def make_dataset(cfg, tokenizer):
         category_df.to_csv(category_csv)
         train_df.to_csv(train_csv)
 
-    category_df = pd.read_csv(category_csv, dtype={'SSno': str})
+    category_df = pd.read_csv(category_csv, dtype=str)
     train_df = pd.read_csv(train_csv)
     train_set = Dataset.from_pandas(train_df)
     train_set = formatting_data(cfg, train_set, category_df)
@@ -172,7 +172,7 @@ def load_data(cfg, tokenizer):
 
     # pred
     if 'pred' in cfg:
-        category_df = pd.read_csv(cfg.data.category_csv, dtype={'SSno': str})
+        category_df = pd.read_csv(cfg.data.category_csv, dtype=str)
         df = pd.read_csv(cfg.data.test_csv)
         dataset = Dataset.from_pandas(df)
 
@@ -191,7 +191,7 @@ def get_dataset(cfg, tokenizer):
     if os.path.isdir(dataset_path):
         logger.info('load dataset from disk!')
         dataset = load_from_disk(dataset_path)
-        category_df = pd.read_csv(cfg.data.category_csv, dtype={'SSno': str})
+        category_df = pd.read_csv(cfg.data.category_csv, dtype=str)
         return dataset, category_df
     
     dataset, category_df = load_data(cfg, tokenizer)

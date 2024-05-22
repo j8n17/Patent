@@ -4,7 +4,7 @@ data:
   debug: false
 
 model:
-  pretrained_model_name_or_path : "./results/save/kobart_3epoch"
+  pretrained_model_name_or_path : "./results/save/kobart_last1layer_hierarchical_LLno_6epoch"
 
 pred:
   # method: argmax
