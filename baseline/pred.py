@@ -43,7 +43,6 @@ def load_model(cfg):
 
 def inference(cfg, dataset, model):
     device = cfg.pred.device
-    threshold = cfg.pred.threshold
 
     test_loader = DataLoader(
         dataset,
@@ -66,54 +65,55 @@ def inference(cfg, dataset, model):
                 attention_mask = batch['attention_mask'].to(device),
             )
             result_ids.append(batch['documentId'].numpy())
-            result_logits.append(outputs.logits.detach().cpu().numpy()[:, :564]) # 계층적 라벨 학습이든 아니든 SSno 출력만 선택.
+            result_logits.append(outputs.logits.detach().cpu()[:, :564]) # 계층적 라벨 학습이든 아니든 SSno 출력만 선택.
     
     ids = np.concatenate(result_ids)
-    logits = np.concatenate(result_logits)
-    logits = torch.from_numpy(logits)
+    probs = torch.sigmoid(torch.concat(result_logits))
 
-    return ids, logits
+    return ids, probs
 
-def prediction(cfg, logits):
+def prediction(cfg, probs):
+    threshold = cfg.pred.threshold
+
     if cfg.pred.method == 'prob_threshold':
-        preds = torch.sigmoid(logits) > threshold
+        preds = probs > threshold
 
     elif cfg.pred.method == 'argmax':
-        max_values = logits.max(dim=1, keepdim=True).values
-        preds = logits == max_values
+        max_values = probs.max(dim=1, keepdim=True).values
+        preds = probs == max_values
 
     elif cfg.pred.method == 'auto_ratio_threshold':
         # 특징 : 높은 확률로 예측한 클래스가 있는 데이터인지와 상관없이, multi label이 될 수 있다?
         threshold = 1
-        n_single_pred = logits.shape[0] * 0.8476
-        max_values = logits.max(dim=1, keepdim=True).values
+        n_single_pred = probs.shape[0] * 0.8476
+        max_values = probs.max(dim=1, keepdim=True).values
 
-        while (logits >= threshold * max_values).sum(dim=1).eq(1).sum() > n_single_pred:
+        while (probs >= threshold * max_values).sum(dim=1).eq(1).sum() > n_single_pred:
             threshold -= 0.0005
 
         print(f"ratio_threshold : {threshold}")
 
-        preds = logits >= threshold * max_values
+        preds = probs >= threshold * max_values
 
     elif cfg.pred.method == 'auto_prob_threshold':
         # single predict 개수에 맞게 예측하도록 threshold를 찾는 경우
         # 특징 : 높은 확률로 예측한 클래스가 있는 데이터가 multi label일 확률이 높다?
         threshold = 1
-        n_single_pred = logits.shape[0] * 0.8476
+        n_single_pred = probs.shape[0] * 0.8476
 
-        def count_single_predictions(logits, threshold):
-            preds = torch.sigmoid(logits) > threshold
+        def count_single_predictions(probs, threshold):
+            preds = probs > threshold
             pred_counts = preds.sum(dim=1)
             return (pred_counts == 0).sum() + (pred_counts == 1).sum()
 
-        while count_single_predictions(logits, threshold) > n_single_pred:
+        while count_single_predictions(probs, threshold) > n_single_pred:
             threshold -= 0.0005
 
         print(f"prob_threshold : {threshold}")
 
-        preds_prob = torch.sigmoid(logits) > threshold
-        max_values = logits.max(dim=1, keepdim=True).values
-        preds_argmax = logits == max_values
+        preds_prob = probs > threshold
+        max_values = probs.max(dim=1, keepdim=True).values
+        preds_argmax = probs == max_values
 
         preds = preds_prob | preds_argmax
 
