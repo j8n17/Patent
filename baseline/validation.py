@@ -150,10 +150,11 @@ def save_score_df(cfg, preds, labels, columns, category_df):
         hierarchy_score_df = pd.DataFrame(report).drop(columns=['macro avg', 'weighted avg', 'samples avg']).rename(columns={'micro avg': f'{hierarchy}_micro avg'})
         all_score_df = pd.concat([all_score_df, hierarchy_score_df], axis=1)
 
+    all_score_df['hierarchy'] = ['SSno'] + extra_hierarchy
     # 'micro'가 포함된 열들을 앞으로 이동
     micro_cols = [col for col in all_score_df.columns if 'micro' in col]
     other_cols = [col for col in all_score_df.columns if 'micro' not in col]
-    all_score_df = all_score_df[micro_cols + other_cols]
+    all_score_df = all_score_df[['hierarchy'] + micro_cols + other_cols]
 
     all_score_df.to_csv(save_path, index=False)
 
