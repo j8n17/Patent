@@ -250,7 +250,7 @@ def main(cfg):
     tokenizer = load_tokenizer(cfg)
 
     dataset, category_df = get_dataset(cfg, tokenizer)
-    dataset = add_hierarchical_labels(cfg, dataset, category_df)
+    dataset = add_hierarchical_labels(cfg, dataset, category_df, dataset.keys())
     logger.info(dataset)
 
     pos_weights = compute_pos_weights(dataset)

@@ -166,8 +166,8 @@ def main(cfg):
 
     tokenizer, model = load_model(cfg)
 
-    dataset, category_df = get_dataset(cfg, tokenizer)
-    dataset = add_hierarchical_labels(cfg, dataset, category_df)
+    dataset, category_df = get_dataset(cfg)
+    dataset = add_hierarchical_labels(cfg, dataset, category_df, ['valid'], use_all=True)
     dataset = dataset['valid']
     logger.info(dataset)
 

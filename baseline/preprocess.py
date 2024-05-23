@@ -188,7 +188,7 @@ def load_data(cfg, tokenizer):
 
         return dataset, category_df
     
-def get_dataset(cfg, tokenizer):
+def get_dataset(cfg, tokenizer=None):
     dataset_path = os.path.join(cfg.data.train, cfg.model.name)
 
     if os.path.isdir(dataset_path):
@@ -316,8 +316,11 @@ def convert_single_label_dataset(dataset):
     
     return concatenate_datasets([dataset, expand_dataset])
 
-def add_hierarchical_labels(cfg, dataset, category_df):
-    extra_hierarchy = [key for key, value in cfg.train.extra_hierarchy.items() if value]
+def add_hierarchical_labels(cfg, dataset, category_df, target_dataset, use_all=False):
+    if use_all:
+        extra_hierarchy = list(cfg.train.extra_hierarchy.keys())
+    else:
+        extra_hierarchy = [key for key, value in cfg.train.extra_hierarchy.items() if value]
 
     if not extra_hierarchy:
         logger.info('use just SSnos...')
@@ -325,7 +328,7 @@ def add_hierarchical_labels(cfg, dataset, category_df):
     
     logger.info(f'extra hierarchical labels - {extra_hierarchy}')
     
-    for key in dataset.keys():
+    for key in target_dataset:
         logger.info(f'add extra hierarchical labels for {key} dataset...')
         labels = np.array(dataset[key]['labels'])
 
