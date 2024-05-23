@@ -116,7 +116,7 @@ def save_probs(cfg, ids, probs, columns):
 def make_columns(cfg, category_df):
     columns = {'SSno': [i for i in category_df["SSno"].unique()]}
 
-    extra_hierarchy = [key for key, value in cfg.train.extra_hierarchy.items() if value]
+    extra_hierarchy = list(cfg.train.extra_hierarchy.keys())
     for hierarchy in extra_hierarchy:
         columns[hierarchy] = [i for i in category_df[hierarchy].unique()]
 
@@ -125,23 +125,25 @@ def make_columns(cfg, category_df):
 def save_score_df(cfg, preds, labels, columns, category_df):
     save_path = f"../analysis/validation/{cfg.model.pretrained_model_name_or_path.split('/')[-1]}/score.csv"
 
-    extra_hierarchy = [key for key, value in cfg.train.extra_hierarchy.items() if value]
+    extra_hierarchy = list(cfg.train.extra_hierarchy.keys())
     num_classes = category_df[["SSno", "Sno", "Mno", "Lno", "LLno"]].nunique().to_dict()
 
+    # SSno 성능 계산
     ssno_preds = preds[:, :564]
     ssno_labels = labels[:, :564]
 
     report = classification_report(ssno_labels, ssno_preds, target_names=columns['SSno'], output_dict=True)
     all_score_df = pd.DataFrame(report).drop(columns=['macro avg', 'weighted avg', 'samples avg']).rename(columns={'micro avg': 'SSno_micro avg'})
 
+    # SSno 예측을 토대로 Sno, Mno, Lno, LLno 성능 계산
     num_data = preds.shape[0]
     start = num_classes['SSno']
     for hierarchy in extra_hierarchy:
         hierarchy_classes = category_df[hierarchy].unique()
         hierarchy_preds = np.zeros((num_data, num_classes[hierarchy]), dtype=bool)
-        # 'SSno' 라벨을 기준으로 'Lno' 라벨을 생성
+
         for i in range(num_data):
-            hierarchy_preds[i, np.searchsorted(hierarchy_classes, category_df.loc[ssno_labels[i], hierarchy].values)] = True
+            hierarchy_preds[i, np.searchsorted(hierarchy_classes, category_df.loc[ssno_preds[i], hierarchy].values)] = True
 
         end = start + num_classes[hierarchy]
         hierarchy_labels = labels[:, start:end]
@@ -150,12 +152,13 @@ def save_score_df(cfg, preds, labels, columns, category_df):
         hierarchy_score_df = pd.DataFrame(report).drop(columns=['macro avg', 'weighted avg', 'samples avg']).rename(columns={'micro avg': f'{hierarchy}_micro avg'})
         all_score_df = pd.concat([all_score_df, hierarchy_score_df], axis=1)
 
-    all_score_df['hierarchy'] = ['SSno'] + extra_hierarchy
     # 'micro'가 포함된 열들을 앞으로 이동
     micro_cols = [col for col in all_score_df.columns if 'micro' in col]
     other_cols = [col for col in all_score_df.columns if 'micro' not in col]
-    all_score_df = all_score_df[['hierarchy'] + micro_cols + other_cols]
+    all_score_df = all_score_df[micro_cols + other_cols].T
 
+    all_score_df = all_score_df.round(2)
+    all_score_df = all_score_df.reset_index().rename(columns={'index': 'class'})
     all_score_df.to_csv(save_path, index=False)
 
 def main(cfg):
