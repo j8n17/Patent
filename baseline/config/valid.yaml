@@ -4,7 +4,14 @@ data:
   debug: false
 
 model:
-  pretrained_model_name_or_path : "./results/save/kobart_last1layer_hierarchical_LLno_6epoch"
+  pretrained_model_name_or_path : "./results/save/kobart_multi_label_6epoch"
+
+train:
+  extra_hierarchy: 
+    Sno: False
+    Mno: False
+    Lno: False
+    LLno: True
 
 pred:
   # method: argmax

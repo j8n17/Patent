@@ -98,20 +98,18 @@ def label2text(hierarchy, category_df, labels):
     ]
     return classes
 
-def save_probs(cfg, ids, probs, columns):
+def save_probs(cfg, ids, probs, columns, file_path):
     # 예측된 SSno의 상위 계층으로 상위 계층의 F1 Score을 계산할 것이므로 상위 계층에 대한 확률은 필요 없음.
     logger.info('save pred probs...')
-    dir_path = f"../analysis/validation/{cfg.model.pretrained_model_name_or_path.split('/')[-1]}"
+    dir_path = os.path.split(file_path)[0]
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
-
-    probs_path = dir_path + "/probs.csv"
 
     df = pd.DataFrame(probs, columns=columns)
     df['documentId'] = ids
     df = df[['documentId'] + columns]
 
-    df.to_csv(probs_path, index=False)
+    df.to_csv(file_path, index=False)
 
 def make_columns(cfg, category_df):
     columns = {'SSno': [i for i in category_df["SSno"].unique()]}
@@ -161,10 +159,27 @@ def save_score_df(cfg, preds, labels, columns, category_df):
     all_score_df = all_score_df.reset_index().rename(columns={'index': 'class'})
     all_score_df.to_csv(save_path, index=False)
 
+def get_probs(cfg, dataset, model, cols):
+    file_path = f"../analysis/validation/{cfg.model.pretrained_model_name_or_path.split('/')[-1]}/probs.csv"
+    if os.path.isfile(file_path):
+        probs_df = pd.read_csv(file_path).drop(columns='documentId')
+        probs = torch.tensor(probs_df.values)
+    else:
+        ids, probs = inference(cfg, dataset, model)
+        save_probs(cfg, ids, probs, cols['SSno'], file_path)
+
+    return probs
+
+def probs_csv_exist(cfg):
+    file_path = f"../analysis/validation/{cfg.model.pretrained_model_name_or_path.split('/')[-1]}/probs.csv"
+    if os.path.isfile(file_path):
+        return True
+    return False
+
 def main(cfg):
     set_seed(cfg)
 
-    tokenizer, model = load_model(cfg)
+    tokenizer, model = load_model(cfg) if not probs_csv_exist(cfg) else None, None
 
     dataset, category_df = get_dataset(cfg)
     dataset = add_hierarchical_labels(cfg, dataset, category_df, ['valid'], use_all=True)
@@ -174,8 +189,7 @@ def main(cfg):
     save_valset_info(dataset, tokenizer, category_df)
     cols = make_columns(cfg, category_df)
     
-    ids, probs = inference(cfg, dataset, model)
-    save_probs(cfg, ids, probs, cols['SSno'])
+    probs = get_probs(cfg, dataset, model, cols)
 
     preds = prediction(cfg, probs) # True, False로 pred
     labels = np.array(dataset['labels'])
