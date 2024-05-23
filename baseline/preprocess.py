@@ -68,6 +68,7 @@ def groupby_docId(docs, labels):
     return data
 
 def make_dataset(cfg, tokenizer):
+    logger.info('make dataset...')
     category_csv = cfg.data.category_csv
     train_csv = cfg.data.train_csv
     if os.path.isfile(category_csv) and os.path.isfile(train_csv):
@@ -95,8 +96,40 @@ def cleaning_data(text):
 
 def formatting_data(cfg, dataset, category_df=None):
     logger.info('formatting dataset...')
-    
-    if 'pred' in cfg:
+
+    # train & valid
+    if 'train' in cfg:
+        idx_to_SS = category_df.SSno.values
+        SS_to_idx = {cat:idx for idx, cat in enumerate(idx_to_SS)}
+
+        def formatting_fn(example):
+            title = example['invention_title']
+            abstract = example['abstract']
+            claims = example['claims']
+
+            texts = f"{title} 요약: {abstract} 청구항: {claims}"
+            texts = cleaning_data(texts)
+            labels = np.zeros(len(SS_to_idx), dtype=np.bool_)
+
+            for SSno in example['SSnos'].split():
+                labels[SS_to_idx[SSno]] = 1
+
+            return {
+                'texts': texts,
+                'labels': labels,
+            }
+        
+        formatted = dataset.map(
+            formatting_fn,
+            remove_columns=[
+                col
+                for col in dataset.column_names
+                if col not in ['documentId']
+            ],
+        )
+        return formatted
+    # pred
+    else:
         def formatting_fn(example):
             title = example['invention_title']
             abstract = example['abstract']
@@ -119,36 +152,6 @@ def formatting_data(cfg, dataset, category_df=None):
         )
 
         return formatted
-    
-    idx_to_SS = category_df.SSno.values
-    SS_to_idx = {cat:idx for idx, cat in enumerate(idx_to_SS)}
-
-    def formatting_fn(example):
-        title = example['invention_title']
-        abstract = example['abstract']
-        claims = example['claims']
-
-        texts = f"{title} 요약: {abstract} 청구항: {claims}"
-        texts = cleaning_data(texts)
-        labels = np.zeros(len(SS_to_idx), dtype=np.bool_)
-
-        for SSno in example['SSnos'].split():
-            labels[SS_to_idx[SSno]] = 1
-
-        return {
-            'texts': texts,
-            'labels': labels,
-        }
-    
-    formatted = dataset.map(
-        formatting_fn,
-        remove_columns=[
-            col
-            for col in dataset.column_names
-            if col not in ['documentId']
-        ],
-    )
-    return formatted
 
 def tokenize_data(cfg, dataset, tokenizer):
     logger.info('tokenize dataset...')
@@ -170,8 +173,12 @@ def tokenize_data(cfg, dataset, tokenizer):
 def load_data(cfg, tokenizer):
     logger.info('load dataset...')
 
+    # train & valid
+    if 'train' in cfg:
+        return make_dataset(cfg, tokenizer)
+
     # pred
-    if 'pred' in cfg:
+    else:
         category_df = pd.read_csv(cfg.data.category_csv, dtype=str)
         df = pd.read_csv(cfg.data.test_csv)
         dataset = Dataset.from_pandas(df)
@@ -180,10 +187,6 @@ def load_data(cfg, tokenizer):
         dataset = tokenize_data(cfg, dataset, tokenizer)
 
         return dataset, category_df
-    
-    # train
-    else:
-        return make_dataset(cfg, tokenizer)
     
 def get_dataset(cfg, tokenizer):
     dataset_path = os.path.join(cfg.data.train, cfg.model.name)
