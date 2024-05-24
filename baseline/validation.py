@@ -176,6 +176,19 @@ def probs_csv_exist(cfg):
         return True
     return False
 
+def save_preds(cfg, ids, preds, category_df):
+    file_path = f"../analysis/validation/{cfg.model.pretrained_model_name_or_path.split('/')[-1]}/preds.csv"
+    idx_to_SSno = category_df.SSno.values
+    SSnos = [
+        ' '.join(idx_to_SSno[idx] for idx in pred.nonzero()[0])
+        for pred in preds
+    ]
+    submission = pd.DataFrame({
+        'documentId': ids,
+        'SSnos': SSnos,
+    })
+    submission.to_csv(file_path, index=False)
+
 def main(cfg):
     set_seed(cfg)
 
@@ -193,7 +206,9 @@ def main(cfg):
 
     preds = prediction(cfg, probs) # True, False로 pred
     labels = np.array(dataset['labels'])
+    ids = dataset['documentId']
 
+    save_preds(cfg, ids, preds, category_df)
     save_score_df(cfg, preds, labels, cols, category_df)
 
 if __name__ == '__main__':
