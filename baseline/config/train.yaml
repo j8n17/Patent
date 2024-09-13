@@ -35,6 +35,7 @@ train:
   fine_tune: 
     enable: True
     n_layer: 1
+    lora: True
 
   use_step: True
   epochs: 3
