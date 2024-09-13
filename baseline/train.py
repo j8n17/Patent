@@ -103,9 +103,9 @@ def load_model(cfg, dataset):
             for param in model.parameters():
                 param.requires_grad = False
 
-            # 마지막 N개의 Encoder Layer의 파라미터를 unfreeze
+            # 마지막 N개의 Decoder Layer의 파라미터를 unfreeze
             if N != 0:
-                for layer in model.model.encoder.layers[-N:]:
+                for layer in model.model.decoder.layers[-N:]:
                     for param in layer.parameters():
                         param.requires_grad = True
 
@@ -121,8 +121,8 @@ def load_model(cfg, dataset):
                 param.requires_grad = False
 
             if N != 0:
-                # 마지막 N개의 Encoder Layer의 파라미터를 unfreeze
-                for layer in model.electra.encoder.layer[-N:]:
+                # 마지막 N개의 Decoder Layer의 파라미터를 unfreeze
+                for layer in model.electra.decoder.layer[-N:]:
                     for param in layer.parameters():
                         param.requires_grad = True
 
