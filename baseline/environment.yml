@@ -1,4 +1,4 @@
-name: patent2
+name: patent
 channels:
   - defaults
 dependencies:
@@ -10,6 +10,9 @@ dependencies:
     - torch
     - datasets
     - transformers
+    - peft
     - accelerate
     - scikit-learn
     - imbalanced-learn
+    - graphviz
+  - torchview
