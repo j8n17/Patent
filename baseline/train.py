@@ -175,6 +175,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
             dataloader_persistent_workers=True,
 
             per_device_train_batch_size=cfg.train.batch_size,
+            gradient_accumulation_steps=math.ceil(cfg.model.num_labels/cfg.train.batch_size) if cfg.train.grad_accumulation else 1,
             per_device_eval_batch_size=cfg.train.batch_size,
             optim=cfg.train.optim,
             learning_rate=cfg.train.learning_rate,
