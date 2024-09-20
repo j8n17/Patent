@@ -20,6 +20,8 @@ from preprocess import load_data, split_data, convert_single_label_dataset, add_
 from sklearn.metrics import f1_score
 import math
 import torch.nn as nn
+from torch.optim.lr_scheduler import LambdaLR
+from transformers.optimization import AdamW
 
 def get_logger():
     logging.basicConfig(
@@ -232,6 +234,11 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
 
     loss_fn = get_loss_fn(cfg, pos_weights)
 
+    if cfg.train.lambda_lr:
+        optimizer = AdamW(model.parameters(), lr=cfg.train.learning_rate) if cfg.train.optim == "adamw_torch" else None
+        step_interval = max_steps / cfg.train.epochs
+        scheduler = LambdaLR(optimizer, lambda step: 2 ** (step // step_interval))
+
     trainer = CustomTrainer(
         model = model,
         args = training_args,
@@ -239,6 +246,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
         eval_dataset = dataset['valid'],
         tokenizer = tokenizer,
         loss_fn=loss_fn,
+        optimizers=(optimizer, scheduler) if cfg.train.lambda_lr else (None, None),
         # compute_metrics=compute_metrics,
     )
 
