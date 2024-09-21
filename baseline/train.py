@@ -212,7 +212,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
     def compute_metrics(pred):
         # 계층적 학습이든 아니든 SSno output만 선택
         labels = pred.label_ids[:, :564]
-        outputs = pred.predictions[:, :564]
+        outputs = pred.predictions[0][:, :564]
 
         # [multi cls pred] sigmoid 값 0.5 이상 예측, micro F1-score 계산
         preds = torch.from_numpy(outputs)
@@ -230,7 +230,14 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
             "f1_argmax": f1_argmax
             }
     
-    # validation OOM 문제 해결 방법 - https://discuss.huggingface.co/t/cuda-out-of-memory-when-using-trainer-with-compute-metrics/2941/13
+    def preprocess_logits_for_metrics(logits, labels):
+        """
+        validation OOM 문제 해결 방법 - https://discuss.huggingface.co/t/cuda-out-of-memory-when-using-trainer-with-compute-metrics/2941/13
+        위 링크에서는 argmax를 통해 미리 처리하는 방식으로 메모리 사용률을 줄였지만, 일단 cpu로 보내서 할 수 있는지 테스트하기 위한 코드로 작성했음.
+        """
+        logits = (logits[0].to('cpu'), logits[1].to('cpu'))
+        return logits
+    
 
     loss_fn = get_loss_fn(cfg, pos_weights)
 
@@ -247,7 +254,8 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
         tokenizer = tokenizer,
         loss_fn=loss_fn,
         optimizers=(optimizer, scheduler) if cfg.train.lambda_lr else (None, None),
-        # compute_metrics=compute_metrics,
+        compute_metrics=compute_metrics,
+        preprocess_logits_for_metrics=preprocess_logits_for_metrics,
     )
 
     logger.info(f"trainer: {trainer.args}")
