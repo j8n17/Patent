@@ -161,7 +161,8 @@ class CustomTrainer(Trainer):
 def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
     logger.info(f"build trainer...")
     if cfg.train.use_step:
-        max_steps=math.ceil(len(dataset['train']) / cfg.train.batch_size) * cfg.train.epochs
+        gradient_accumulation_steps = math.ceil(cfg.model.num_labels/cfg.train.batch_size) if cfg.train.grad_accumulation else 1
+        max_steps=math.ceil(math.ceil(len(dataset['train']) / cfg.train.batch_size) / gradient_accumulation_steps) * cfg.train.epochs
         train_fold = cfg.data.n_fold - 1
 
         training_args = TrainingArguments(
@@ -177,7 +178,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
             dataloader_persistent_workers=True,
 
             per_device_train_batch_size=cfg.train.batch_size,
-            gradient_accumulation_steps=math.ceil(cfg.model.num_labels/cfg.train.batch_size) if cfg.train.grad_accumulation else 1,
+            gradient_accumulation_steps=gradient_accumulation_steps,
             per_device_eval_batch_size=cfg.train.batch_size,
             optim=cfg.train.optim,
             learning_rate=cfg.train.learning_rate,
