@@ -161,16 +161,13 @@ class CustomTrainer(Trainer):
 def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
     logger.info(f"build trainer...")
     if cfg.train.use_step:
-        gradient_accumulation_steps = math.ceil(cfg.model.num_labels/cfg.train.batch_size) if cfg.train.grad_accumulation else 1
-        max_steps=math.ceil(math.ceil(len(dataset['train']) / cfg.train.batch_size) / gradient_accumulation_steps) * cfg.train.epochs
-        train_fold = cfg.data.n_fold - 1
 
         training_args = TrainingArguments(
             save_strategy='epoch',
             evaluation_strategy='steps',
             logging_strategy='steps',
             
-            max_steps=max_steps,
+            num_train_epochs=cfg.train.epochs,
             eval_steps=0.5,
             eval_on_start=cfg.train.valid.eval_first,
             eval_accumulation_steps=None if cfg.train.valid.eval_accumulation_steps==0 else cfg.train.valid.eval_accumulation_steps,
@@ -180,11 +177,11 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
             dataloader_persistent_workers=True,
 
             per_device_train_batch_size=cfg.train.batch_size,
-            gradient_accumulation_steps=gradient_accumulation_steps,
+            gradient_accumulation_steps=math.ceil(cfg.model.num_labels/cfg.train.batch_size) if cfg.train.grad_accumulation else 1,
             per_device_eval_batch_size=cfg.train.batch_size,
             optim=cfg.train.optim,
             learning_rate=cfg.train.learning_rate,
-            warmup_steps=max_steps if cfg.train.warmup_steps==-1 else cfg.train.warmup_steps,
+            warmup_steps=cfg.train.warmup_steps,
             lr_scheduler_type=cfg.train.lr_scheduler_type,
 
             output_dir=cfg.train.output_dir,
@@ -246,8 +243,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
 
     if cfg.train.lambda_lr:
         optimizer = AdamW(model.parameters(), lr=cfg.train.learning_rate) if cfg.train.optim == "adamw_torch" else None
-        step_interval = max_steps / cfg.train.epochs
-        scheduler = LambdaLR(optimizer, lambda step: 2 ** (step // step_interval))
+        scheduler = LambdaLR(optimizer, lambda epoch: 2 ** epoch)
 
     trainer = CustomTrainer(
         model = model,
