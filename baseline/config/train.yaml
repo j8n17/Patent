@@ -46,6 +46,10 @@ train:
   lambda_lr: True
   # early_stop_patience: 5
 
+  valid:
+    eval_first: False
+    eval_accumulation_steps: 0 # 9
+
   output_dir: './results'
   save_total_limit: 10
   report_to: ['tensorboard']
