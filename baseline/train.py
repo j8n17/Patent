@@ -160,54 +160,34 @@ class CustomTrainer(Trainer):
 
 def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
     logger.info(f"build trainer...")
-    if cfg.train.use_step:
 
-        training_args = TrainingArguments(
-            save_strategy='epoch',
-            evaluation_strategy='steps',
-            logging_strategy='steps',
-            
-            num_train_epochs=cfg.train.epochs,
-            eval_steps=0.5,
-            eval_on_start=cfg.train.valid.eval_first,
-            eval_accumulation_steps=None if cfg.train.valid.eval_accumulation_steps==0 else cfg.train.valid.eval_accumulation_steps,
-            logging_steps=0.5,
+    training_args = TrainingArguments(
+        save_strategy='epoch',
+        evaluation_strategy='steps',
+        logging_strategy='steps',
+        
+        num_train_epochs=cfg.train.epochs,
+        eval_steps=0.5,
+        eval_on_start=cfg.train.valid.eval_first,
+        eval_accumulation_steps=None if cfg.train.valid.eval_accumulation_steps==0 else cfg.train.valid.eval_accumulation_steps,
+        logging_steps=0.5,
 
-            dataloader_num_workers=2,
-            dataloader_persistent_workers=True,
+        dataloader_num_workers=2,
+        dataloader_persistent_workers=True,
 
-            per_device_train_batch_size=cfg.train.batch_size,
-            gradient_accumulation_steps=math.ceil(cfg.model.num_labels/cfg.train.batch_size) if cfg.train.grad_accumulation else 1,
-            per_device_eval_batch_size=cfg.train.batch_size,
-            optim=cfg.train.optim,
-            learning_rate=cfg.train.learning_rate,
-            warmup_steps=cfg.train.warmup_steps,
-            lr_scheduler_type=cfg.train.lr_scheduler_type,
+        per_device_train_batch_size=cfg.train.batch_size,
+        gradient_accumulation_steps=math.ceil(cfg.model.num_labels/cfg.train.batch_size) if cfg.train.grad_accumulation else 1,
+        per_device_eval_batch_size=cfg.train.batch_size,
+        optim=cfg.train.optim,
+        learning_rate=cfg.train.learning_rate,
+        warmup_steps=cfg.train.warmup_steps,
+        lr_scheduler_type=cfg.train.lr_scheduler_type,
 
-            output_dir=cfg.train.output_dir,
-            save_total_limit=cfg.train.save_total_limit,
+        output_dir=cfg.train.output_dir,
+        save_total_limit=cfg.train.save_total_limit,
 
-            report_to = list(cfg.train.report_to),
-        )
-    else:
-        training_args = TrainingArguments(
-            evaluation_strategy='epoch',
-            save_strategy='epoch',
-            logging_strategy='epoch',
-
-            num_train_epochs=cfg.train.epochs,
-            per_device_train_batch_size=cfg.train.batch_size,
-            per_device_eval_batch_size=cfg.train.batch_size,
-            optim=cfg.train.optim,
-            learning_rate=cfg.train.learning_rate,
-            warmup_steps=cfg.train.warmup_steps,
-            lr_scheduler_type=cfg.train.lr_scheduler_type,
-
-            output_dir=cfg.train.output_dir,
-            save_total_limit=cfg.train.save_total_limit,
-
-            report_to = list(cfg.train.report_to),
-        )
+        report_to = list(cfg.train.report_to),
+    )
 
     def compute_metrics(pred):
         # 계층적 학습이든 아니든 SSno output만 선택
@@ -234,6 +214,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
         """
         validation OOM 문제 해결 방법 - https://discuss.huggingface.co/t/cuda-out-of-memory-when-using-trainer-with-compute-metrics/2941/13
         위 링크에서는 argmax를 통해 미리 처리하는 방식으로 메모리 사용률을 줄였지만, 일단 cpu로 보내서 할 수 있는지 테스트하기 위한 코드로 작성했음.
+        eval_accumulation_step으로 compute_metrics OOM 문제 해결했으므로 이 함수는 사용중지
         """
         logits = (logits[0].to('cpu'), logits[1].to('cpu'))
         return logits
@@ -241,7 +222,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
 
     loss_fn = get_loss_fn(cfg, pos_weights)
 
-    if cfg.train.lambda_lr:
+    if cfg.train.find_optimal_lr:
         optimizer = AdamW(model.parameters(), lr=cfg.train.learning_rate) if cfg.train.optim == "adamw_torch" else None
         scheduler = LambdaLR(optimizer, lambda epoch: 2 ** epoch)
 
@@ -252,9 +233,9 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
         eval_dataset = dataset['valid'],
         tokenizer = tokenizer,
         loss_fn=loss_fn,
-        optimizers=(optimizer, scheduler) if cfg.train.lambda_lr else (None, None),
-        compute_metrics=compute_metrics,
-        preprocess_logits_for_metrics=preprocess_logits_for_metrics,
+        optimizers=(optimizer, scheduler) if cfg.train.find_optimal_lr else (None, None),
+        compute_metrics=compute_metrics if cfg.train.valid.compute_metrics else None,
+        # preprocess_logits_for_metrics=preprocess_logits_for_metrics,
     )
 
     logger.info(f"trainer: {trainer.args}")

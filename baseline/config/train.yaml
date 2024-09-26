@@ -30,24 +30,25 @@ train:
 
   gpu_id: "0"
   
-  optim: adamw_torch
-  
   fine_tune: 
     enable: True
     n_layer: 1
 
-  use_step: True
   epochs: 10
   batch_size: 16
   grad_accumulation: False
+  
+  optim: adamw_torch
+
+  find_optimal_lr: False
   learning_rate: 5e-5
-  warmup_steps: 0
   lr_scheduler_type: 'constant' # 'linear'
-  lambda_lr: True
+  warmup_steps: 0
   # early_stop_patience: 5
 
   valid:
     eval_first: False
+    compute_metrics: False
     eval_accumulation_steps: 0 # 9
 
   output_dir: './results'
