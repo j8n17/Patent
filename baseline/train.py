@@ -167,12 +167,12 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
         logging_strategy='steps',
         
         num_train_epochs=cfg.train.epochs,
-        eval_steps=0.5,
+        eval_steps=0.5/cfg.train.epochs,
         eval_on_start=cfg.train.valid.eval_first,
         eval_accumulation_steps=1280//cfg.train.batch_size if cfg.train.valid.compute_metrics else None,
-        logging_steps=0.5,
+        logging_steps=0.5/cfg.train.epochs,
 
-        dataloader_num_workers=2,
+        dataloader_num_workers=1,
         dataloader_persistent_workers=True,
 
         per_device_train_batch_size=cfg.train.batch_size,
