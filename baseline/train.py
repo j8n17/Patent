@@ -169,7 +169,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
         num_train_epochs=cfg.train.epochs,
         eval_steps=0.5,
         eval_on_start=cfg.train.valid.eval_first,
-        eval_accumulation_steps=None if cfg.train.valid.eval_accumulation_steps==0 else cfg.train.valid.eval_accumulation_steps,
+        eval_accumulation_steps=1280//cfg.train.batch_size if cfg.train.valid.compute_metrics else None,
         logging_steps=0.5,
 
         dataloader_num_workers=2,
