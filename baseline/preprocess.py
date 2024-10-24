@@ -218,12 +218,21 @@ def make_kfold_indices(cfg, dataset):
     y = np.argmax(labels, axis=1)
 
     n_fold = cfg.data.n_fold
-    skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.data.split_seed)
 
     kfold_indices = []
     ros = RandomOverSampler(random_state=cfg.setting.seed)
-    for train_idx, valid_idx in skf.split(X, y):
-        kfold_indices.append([upsample(ros, train_idx, y) if cfg.data.upsampling else train_idx, valid_idx])
+
+    if n_fold == 1:
+        all_indices = np.arange(len(X))
+        train_indices = upsample(ros, all_indices, y) if cfg.data.upsampling else all_indices
+        valid_indices = np.array([])
+        
+        kfold_indices.append([train_indices, valid_indices])
+    else:
+        skf = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=cfg.data.split_seed)
+
+        for train_idx, valid_idx in skf.split(X, y):
+            kfold_indices.append([upsample(ros, train_idx, y) if cfg.data.upsampling else train_idx, valid_idx])
 
     # np.save("../data/train/kfold_indices.npy", kfold_indices) # 필요하면 저장 후 분석
     # test = np.load('./train/KFold_indices.npy', allow_pickle=True) # npy load
@@ -265,6 +274,8 @@ def split_data(cfg, dataset):
 
 def convert_multi_label_dataset(dataset):
     for key in dataset.keys():
+        if not dataset[key]:
+            continue
         logger.info(f'convert to Multi Label Dataset for {key} dataset...')
         combined_data = {}
         

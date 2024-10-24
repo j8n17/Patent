@@ -164,7 +164,7 @@ def get_trainer(cfg, model, tokenizer, dataset, pos_weights):
 
     training_args = TrainingArguments(
         save_strategy='epoch',
-        evaluation_strategy='steps',
+        evaluation_strategy='no' if cfg.data.n_fold == 1 else 'steps',
         logging_strategy='steps',
         
         num_train_epochs=cfg.train.epochs,

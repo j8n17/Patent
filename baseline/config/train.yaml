@@ -5,7 +5,7 @@ data:
   train_csv: ../data/train/train.csv
   save_tokenized_dataset: True
 
-  n_fold: 5
+  n_fold: 1
   valid_fold: 0
   split_seed: 42
   debug: false
@@ -47,7 +47,7 @@ train:
   # early_stop_patience: 5
 
   valid:
-    eval_first: True
+    eval_first: False
     compute_metrics: True
 
   output_dir: './results'
