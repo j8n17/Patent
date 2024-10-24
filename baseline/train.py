@@ -102,18 +102,19 @@ def load_model(cfg, dataset):
             N = cfg.train.fine_tune.n_layer
             logger.info(f'kobart classification_head & {N} layers fine-tuning...')
 
-            for param in model.parameters():
-                param.requires_grad = False
+            if N != -1:
+                for param in model.parameters():
+                    param.requires_grad = False
 
-            # 마지막 N개의 Decoder Layer의 파라미터를 unfreeze
-            if N != 0:
-                for layer in model.model.decoder.layers[-N:]:
-                    for param in layer.parameters():
-                        param.requires_grad = True
+                # 마지막 N개의 Decoder Layer의 파라미터를 unfreeze
+                if N != 0:
+                    for layer in model.model.decoder.layers[-N:]:
+                        for param in layer.parameters():
+                            param.requires_grad = True
 
-            # Classification head의 파라미터를 학습 가능하게 설정
-            for param in model.classification_head.parameters():
-                param.requires_grad = True
+                # Classification head의 파라미터를 학습 가능하게 설정
+                for param in model.classification_head.parameters():
+                    param.requires_grad = True
         
         elif cfg.model.name == 'kopatelectra':
             N = cfg.train.fine_tune.n_layer
