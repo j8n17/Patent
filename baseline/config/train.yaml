@@ -34,16 +34,16 @@ train:
     enable: True
     n_layer: -1
 
-  epochs: 10
-  batch_size: 141
-  grad_accumulation: True
+  epochs: 15
+  batch_size: 16
+  grad_accumulation: False
   
   optim: adamw_torch
 
   find_optimal_lr: False
-  learning_rate: 9e-4
-  lr_scheduler_type: 'constant' # 'linear'
-  warmup_steps: 0
+  learning_rate: 5e-5
+  lr_scheduler_type: 'linear' # 'constant'
+  warmup_steps: 200
   # early_stop_patience: 5
 
   valid:
@@ -51,7 +51,7 @@ train:
     compute_metrics: True
 
   output_dir: './results'
-  save_total_limit: 10
+  save_total_limit: 30
   report_to: ['tensorboard']
 
   loss:
