@@ -153,10 +153,14 @@ def load_model(cfg, dataset):
 
 def get_lora_model(model):
     peft_config = LoraConfig(
-        task_type=TaskType.SEQ_CLS, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+        task_type=TaskType.SEQ_CLS, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1, target_modules=["k_proj", "q_proj", "v_proj", "out_proj", "fc", "embed_positions"]
     )
 
     model = get_peft_model(model, peft_config)
+
+    # Classification head의 파라미터를 학습 가능하게 설정
+    for param in model.classification_head.parameters():
+        param.requires_grad = True
 
     return model
 
