@@ -23,6 +23,8 @@ import torch.nn as nn
 from torch.optim.lr_scheduler import LambdaLR
 from transformers.optimization import AdamW
 
+from peft import get_peft_model, LoraConfig, TaskType
+
 def get_logger():
     logging.basicConfig(
         format="%(asctime)s %(levelname)s %(message)s",
@@ -133,6 +135,9 @@ def load_model(cfg, dataset):
             for param in model.classifier.parameters():
                 param.requires_grad = True
         
+        if cfg.train.fine_tune.lora:
+            model = get_lora_model(model)
+
         def check_freezing(model):
             trainable_weights = []
             for name, param in model.named_parameters():
@@ -143,6 +148,15 @@ def load_model(cfg, dataset):
         check_freezing(model)
     else:
         logger.info('train entire model...')
+
+    return model
+
+def get_lora_model(model):
+    peft_config = LoraConfig(
+        task_type=TaskType.SEQ_CLS, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+    )
+
+    model = get_peft_model(model, peft_config)
 
     return model
 
